@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OfficePong - Profilo Giocatore</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+    <nav class="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-10 shadow-xs">
+        <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <a href="index.html" class="text-xl font-bold text-slate-900 flex items-center gap-2 no-underline">
+                🏓 <span class="text-emerald-600">Office</span>Pong
+            </a>
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="index.html" class="text-slate-600 hover:text-emerald-600 transition-colors">Classifica</a>
+                <a href="history.html" class="text-slate-600 hover:text-emerald-600 transition-colors">Storico Partite</a>
+                <button onclick="signOut()" class="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors">Esci</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto p-4 md:p-8 space-y-6">
+        <div class="flex items-center gap-4">
+            <div id="playerAvatarWrap" class="shrink-0">👤</div>
+            <div>
+                <h1 id="playerTitle" class="text-2xl font-bold text-slate-900">Giocatore</h1>
+                <p class="text-sm text-slate-500">Statistiche Personali e Storico</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div id="profileAvatarPreview" class="shrink-0">👤</div>
+                <div class="flex-1 space-y-3">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-900">Foto profilo</h2>
+                        <p class="text-sm text-slate-500">Puoi cambiarla in qualsiasi momento, caricando un file o incollando un URL.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <input type="file" id="profileAvatarFile" accept="image/*" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-slate-900 file:text-white file:text-sm hover:file:bg-slate-800">
+                        <input type="url" id="profileAvatarUrl" placeholder="Link immagine opzionale" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden">
+                        <button id="saveProfileAvatar" class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors">Salva foto profilo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Partite Giocate</p>
+                <p id="statTotal" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Win Rate</p>
+                <p id="statWinRate" class="text-2xl font-bold text-emerald-600 mt-1">0%</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Vittorie / Sconfitte</p>
+                <p id="statRecord" class="text-2xl font-bold text-slate-600 mt-1">0 - 0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Punti Fatti</p>
+                <p id="statFatti" class="text-2xl font-bold text-slate-700 mt-1">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Punti Subiti</p>
+                <p id="statSubiti" class="text-2xl font-bold text-slate-700 mt-1">0</p>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="p-6 border-b border-slate-100">
+                <h2 class="text-lg font-semibold text-slate-900">Le sue Partite</h2>
+            </div>
+            <div class="divide-y divide-slate-100" id="playerHistoryList">
+                <p class="p-6 text-center text-slate-400">Caricamento match...</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/db.js"></script>
+    <script>
+        // Estrapoliamo il nome dall'URL (?name=Marco)
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerName = urlParams.get('name');
+        let selectedProfileAvatarFile = null;
+
+        if(!playerName) {
+            window.location.href = 'index.html'; // Ritorna alla home se manca il parametro
+        }
+
+        document.getElementById('playerTitle').innerText = playerName;
+
+        document.getElementById('profileAvatarFile').addEventListener('change', event => {
+            const file = event.target.files?.[0];
+            selectedProfileAvatarFile = file || null;
+
+            if (!file) return;
+
+            const previewUrl = URL.createObjectURL(file);
+            document.getElementById('profileAvatarPreview').innerHTML = `
+                <img
+                    src="${previewUrl}"
+                    alt="Anteprima avatar profilo"
+                    class="w-24 h-24 rounded-3xl object-cover border border-slate-200 bg-white shadow-xs shrink-0"
+                >
+            `;
+        });
+
+        document.getElementById('saveProfileAvatar').addEventListener('click', async () => {
+            const avatarUrl = document.getElementById('profileAvatarUrl').value.trim();
+            let finalAvatarUrl = avatarUrl || null;
+
+            if (selectedProfileAvatarFile) {
+                try {
+                    finalAvatarUrl = await uploadAvatarFile(playerName, selectedProfileAvatarFile);
+                } catch (error) {
+                    console.error('Errore upload avatar profilo:', error);
+                    alert('Impossibile caricare la foto. Verifica il bucket Storage e riprova.');
+                    return;
+                }
+            }
+
+            const { error } = await _supabase
+                .from('players')
+                .update({ avatar_url: finalAvatarUrl })
+                .eq('name', playerName);
+
+            if (error) {
+                console.error('Errore aggiornamento avatar:', error);
+                alert('Non riesco a salvare la foto profilo.');
+                return;
+            }
+
+            selectedProfileAvatarFile = null;
+            document.getElementById('profileAvatarFile').value = '';
+
+            loadPlayerProfile();
+        });
+
+        async function loadPlayerProfile() {
+            const { data: player } = await _supabase
+                .from('players')
+                .select('name, avatar_url')
+                .eq('name', playerName)
+                .maybeSingle();
+
+            const { data: dbPlayers } = await _supabase.from('players').select('name, avatar_url');
+            const avatars = new Map((dbPlayers || []).map(entry => [entry.name, entry.avatar_url || '']));
+
+            document.getElementById('playerAvatarWrap').innerHTML = renderAvatar(player?.avatar_url || '', playerName, 'w-20 h-20');
+            document.getElementById('profileAvatarPreview').innerHTML = renderAvatar(player?.avatar_url || '', playerName, 'w-24 h-24');
+            document.getElementById('profileAvatarUrl').value = player?.avatar_url || '';
+
+            // Risolto: racchiudiamo playerName tra virgolette doppie ("") all'interno del filtro
+            // in modo che Supabase accetti anche nomi con spazi o caratteri speciali
+            const { data: matches, error } = await _supabase
+                .from('matches')
+                .select('*')
+                .or(`p1.eq."${playerName}",p2.eq."${playerName}"`)
+                .order('id', { ascending: false });
+
+            if (error) {
+                console.error("Errore Supabase:", error);
+                document.getElementById('playerHistoryList').innerHTML = `<p class="p-6 text-center text-rose-500">Errore nel caricamento del database.</p>`;
+                return;
+            }
+
+            if(!matches || matches.length === 0) {
+                document.getElementById('playerHistoryList').innerHTML = `<p class="p-6 text-center text-slate-400">Nessuna partita registrata per questo giocatore.</p>`;
+                return;
+            }
+
+            // Calcolo statistiche personali
+            let v = 0, s = 0, fatti = 0, subiti = 0;
+
+            matches.forEach(m => {
+                if(m.p1 === playerName) {
+                    fatti += m.s1; subiti += m.s2;
+                    if(m.s1 > m.s2) v++; else s++;
+                } else {
+                    fatti += m.s2; subiti += m.s1;
+                    if(m.s2 > m.s1) v++; else s++;
+                }
+            });
+
+            const total = v + s;
+            const winRate = total > 0 ? Math.round((v / total) * 100) : 0;
+
+            // Aggiorna contatori visivi
+            document.getElementById('statTotal').innerText = total; // <-- Aggiungi questa linea
+            document.getElementById('statWinRate').innerText = `${winRate}%`;
+            document.getElementById('statRecord').innerText = `${v} - ${s}`;
+            document.getElementById('statFatti').innerText = fatti;
+            document.getElementById('statSubiti').innerText = subiti;            // Renderizza la lista dei suoi match
+            document.getElementById('playerHistoryList').innerHTML = matches.map(m => {
+                const ioP1 = m.p1 === playerName;
+                const hoVinto = ioP1 ? (m.s1 > m.s2) : (m.s2 > m.s1);
+                const avversario = ioP1 ? m.p2 : m.p1;
+                const mioPunteggio = ioP1 ? m.s1 : m.s2;
+                const suoPunteggio = ioP1 ? m.s2 : m.s1;
+
+                return `
+                    <div class="p-4 sm:p-6 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold px-2 py-1 rounded-md ${hoVinto ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                ${hoVinto ? 'VITTORIA' : 'SCONFITTA'}
+                            </span>
+                            <span class="text-sm font-medium text-slate-500">Contro:</span>
+                            <a href="player.html?name=${encodeURIComponent(avversario)}" class="flex items-center gap-2 font-semibold text-slate-800 hover:underline">
+                                ${renderAvatar(avatars.get(avversario) || '', avversario, 'w-7 h-7')}
+                                <span>${avversario}</span>
+                            </a>
+                        </div>
+                        <div class="font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">
+                            ${mioPunteggio} - ${suoPunteggio}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        initAuthGate().then(session => {
+            if (session) {
+                loadPlayerProfile();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OfficePong - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+    <nav class="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-10 shadow-xs">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <a href="index.html" class="text-xl font-bold text-slate-900 flex items-center gap-2 no-underline">
+                🏓 <span class="text-emerald-600">Office</span>Pong
+            </a>
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="index.html" class="text-emerald-600 font-semibold">Classifica</a>
+                <a href="history.html" class="text-slate-600 hover:text-emerald-600 transition-colors">Storico Partite</a>
+                <button onclick="signOut()" class="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors">Esci</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="space-y-6 md:col-span-1">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                <h2 class="text-lg font-semibold mb-4 text-slate-900">Nuovo Giocatore</h2>
+                <div class="space-y-3">
+                    <input type="text" id="playerName" placeholder="Nome" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden">
+                    <div class="flex items-center gap-3">
+                        <div id="avatarPreview" class="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-lg shrink-0">👤</div>
+                        <div class="flex-1">
+                            <input type="file" id="playerAvatarFile" accept="image/*" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-slate-900 file:text-white file:text-sm hover:file:bg-slate-800">
+                            <p class="mt-1 text-xs text-slate-400">Carica una foto dal computer oppure incolla un link nel campo sotto.</p>
+                        </div>
+                    </div>
+                    <input type="url" id="playerAvatar" placeholder="Avatar URL opzionale" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden">
+                    <button onclick="addPlayer()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg text-sm cursor-pointer">Aggiungi giocatore</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                <h2 class="text-lg font-semibold mb-4 text-slate-900">Registra Partita</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase">Giocatore 1</label>
+                        <select id="p1Select" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase">Giocatore 2</label>
+                        <select id="p2Select" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"></select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label class="text-xs text-slate-500">Punti G1</label>
+                            <input type="number" id="p1Score" min="0" value="0" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">Punti G2</label>
+                            <input type="number" id="p2Score" min="0" value="0" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold">
+                        </div>
+                    </div>
+                    <button onclick="saveMatch()" class="w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-lg text-sm cursor-pointer">Salva Match</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-span-2">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div class="p-6 border-b border-slate-100 space-y-4">
+                    <h2 class="text-lg font-semibold text-slate-900">Classifica Generale</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="text-sm text-slate-600">
+                            <span class="block text-xs font-semibold uppercase text-slate-400 mb-1">Ordina per</span>
+                            <select id="leaderboardSort" onchange="updateUI()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                <option value="elo">Punti ELO</option>
+                                <option value="winRate">Win Rate</option>
+                                <option value="matches">Partite Giocate</option>
+                            </select>
+                        </label>
+                        <label class="text-sm text-slate-600">
+                            <span class="block text-xs font-semibold uppercase text-slate-400 mb-1">Soglia minima partite</span>
+                            <input id="minMatches" type="number" min="0" value="0" onchange="updateUI()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                        </label>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase border-b border-slate-100">
+                                <th class="py-3 px-6">Giocatore</th>
+                                <th class="py-3 px-4 text-center">PG</th> <th class="py-3 px-4 text-center">V</th>
+                                <th class="py-3 px-4 text-center">S</th>
+                                <th class="py-3 px-4 text-center">Punti +/-</th>
+                                <th class="py-3 px-6 text-right">Win Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/db.js"></script>
+    <script>
+        let selectedAvatarFile = null;
+
+        async function updateUI() {
+            const { data: dbPlayers } = await _supabase.from('players').select('*');
+            const { data: dbMatches } = await _supabase.from('matches').select('*');
+
+            const players = dbPlayers || [];
+            const matches = dbMatches || [];
+            const sortMode = document.getElementById('leaderboardSort')?.value || 'elo';
+            const minMatches = Math.max(parseInt(document.getElementById('minMatches')?.value || '0', 10) || 0, 0);
+            
+            const p1Sel = document.getElementById('p1Select');
+            const p2Sel = document.getElementById('p2Select');
+            p1Sel.innerHTML = p2Sel.innerHTML = "";
+            players.forEach(p => {
+                p1Sel.innerHTML += `<option value="${p.name}">${p.name}</option>`;
+                p2Sel.innerHTML += `<option value="${p.name}">${p.name}</option>`;
+            });
+
+            let stats = {};
+            players.forEach(p => stats[p.name] = { v: 0, s: 0, fatti: 0, subiti: 0, avatar_url: p.avatar_url || '' });
+
+            matches.forEach(m => {
+                if(!stats[m.p1] || !stats[m.p2]) return;
+                stats[m.p1].fatti += m.s1; stats[m.p1].subiti += m.s2;
+                stats[m.p2].fatti += m.s2; stats[m.p2].subiti += m.s1;
+                if(m.s1 > m.s2) { stats[m.p1].v++; stats[m.p2].s++; }
+                else { stats[m.p2].v++; stats[m.p1].s++; }
+            });
+
+            let ranked = players.map(p => {
+                const total = stats[p.name].v + stats[p.name].s;
+                const rate = total > 0 ? Math.round((stats[p.name].v / total) * 100) : 0;
+                const diff = stats[p.name].fatti - stats[p.name].subiti;
+                const eloScore = 1000 + (stats[p.name].v * 30) + (diff * 5) + (rate * 2);
+                return { name: p.name, ...stats[p.name], rate, total, diff, eloScore };
+            }).filter(p => p.total >= minMatches).sort((a,b) => {
+                if (sortMode === 'matches') {
+                    return b.total - a.total || b.rate - a.rate || b.diff - a.diff;
+                }
+
+                if (sortMode === 'winRate') {
+                    return b.rate - a.rate || b.total - a.total || b.diff - a.diff;
+                }
+
+                return b.eloScore - a.eloScore || b.rate - a.rate || b.total - a.total || b.diff - a.diff;
+            });
+
+            document.getElementById('leaderboardBody').innerHTML = ranked.map(p => `
+                <tr class="hover:bg-slate-50/70">
+                    <td class="py-4 px-6 font-medium">
+                        <div class="flex items-center gap-3">
+                            ${renderAvatar(p.avatar_url, p.name, 'w-9 h-9')}
+                            <a href="player.html?name=${encodeURIComponent(p.name)}" class="text-emerald-600 hover:underline">${p.name}</a>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 text-center font-medium text-slate-500">${p.total}</td>
+                    <td class="py-4 px-4 text-center font-semibold text-emerald-600">${p.v}</td> <td class="py-4 px-4 text-center font-semibold text-rose-500">${p.s}</td>
+                    <td class="py-4 px-4 text-center text-slate-500">${p.fatti}:${p.subiti}</td>
+                    <td class="py-4 px-6 text-right font-bold">${p.rate}%</td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('playerAvatarFile').addEventListener('change', event => {
+            const file = event.target.files?.[0];
+            selectedAvatarFile = file || null;
+
+            if (!file) return;
+
+            const previewUrl = URL.createObjectURL(file);
+            document.getElementById('avatarPreview').innerHTML = `
+                <img
+                    src="${previewUrl}"
+                    alt="Anteprima avatar"
+                    class="w-12 h-12 rounded-full object-cover border border-slate-200 bg-white shrink-0"
+                >
+            `;
+        });
+
+        async function addPlayer() {
+            const name = document.getElementById('playerName').value.trim();
+            const avatarUrl = document.getElementById('playerAvatar').value.trim();
+            if(name) {
+                let finalAvatarUrl = avatarUrl || null;
+
+                if (selectedAvatarFile) {
+                    try {
+                        finalAvatarUrl = await uploadAvatarFile(name, selectedAvatarFile);
+                    } catch (error) {
+                        console.error('Errore upload avatar:', error);
+                        alert('Impossibile caricare l\'immagine. Controlla che il bucket Storage sia configurato correttamente.');
+                        return;
+                    }
+                }
+
+                await _supabase.from('players').insert([{ name, avatar_url: finalAvatarUrl }]);
+                document.getElementById('playerName').value = "";
+                document.getElementById('playerAvatar').value = "";
+                document.getElementById('playerAvatarFile').value = "";
+                document.getElementById('avatarPreview').innerHTML = '👤';
+                selectedAvatarFile = null;
+                updateUI();
+            }
+        }
+
+        async function saveMatch() {
+            const p1 = document.getElementById('p1Select').value;
+            const p2 = document.getElementById('p2Select').value;
+            const s1 = parseInt(document.getElementById('p1Score').value);
+            const s2 = parseInt(document.getElementById('p2Score').value);
+            if(p1 === p2 || s1 === s2) return alert("Controlla i dati inseriti!");
+            await _supabase.from('matches').insert([{ p1, p2, s1, s2 }]);
+            document.getElementById('p1Score').value = 0;
+            document.getElementById('p2Score').value = 0;
+            updateUI();
+        }
+
+        initAuthGate().then(session => {
+            if (session) {
+                updateUI();
+            }
+        });
+    </script>
+</body>
+</html>
