@@ -38,7 +38,6 @@
     <script src="js/db.js"></script>
     <script>
         async function loadHistory() {
-            // Scarichiamo i match ordinandoli per l'ID decrescente (i più recenti prima)
             const { data: matches, error } = await _supabase.from('matches').select('*').order('id', { ascending: false });
             const { data: dbPlayers } = await _supabase.from('players').select('name, avatar_url');
             const avatars = new Map((dbPlayers || []).map(player => [player.name, player.avatar_url || '']));
@@ -59,6 +58,12 @@
                 const g1Vince = m.s1 > m.s2;
                 const p1Avatar = avatars.get(m.p1) || '';
                 const p2Avatar = avatars.get(m.p2) || '';
+                
+                // Formatta la data escludendo l'orario
+                const matchDate = new Date(m.created_at).toLocaleDateString('it-IT', {
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                });
+
                 return `
                     <div class="p-4 sm:p-6 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
                         <div class="w-2/5 text-left">
@@ -69,8 +74,11 @@
                             ${g1Vince ? '👑' : ''}
                         </div>
                         
-                        <div class="w-1/5 text-center bg-slate-100 py-1.5 px-3 rounded-lg font-mono font-bold text-slate-700 shadow-inner">
-                            ${m.s1} - ${m.s2}
+                        <div class="w-1/5 flex flex-col items-center justify-center gap-1.5">
+                            <div class="bg-slate-100 py-1.5 px-3 rounded-lg font-mono font-bold text-slate-700 shadow-inner">
+                                ${m.s1} - ${m.s2}
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-medium tracking-wide whitespace-nowrap">${matchDate}</span>
                         </div>
                         
                         <div class="w-2/5 text-right">

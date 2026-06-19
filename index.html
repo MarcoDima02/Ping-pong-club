@@ -54,11 +54,11 @@
                     <div class="grid grid-cols-2 gap-4 pt-2">
                         <div>
                             <label class="text-xs text-slate-500">Punti G1</label>
-                            <input type="number" id="p1Score" min="0" value="0" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold">
+                            <input type="number" id="p1Score" min="0" value="" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold">
                         </div>
                         <div>
                             <label class="text-xs text-slate-500">Punti G2</label>
-                            <input type="number" id="p2Score" min="0" value="0" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold">
+                            <input type="number" id="p2Score" min="0" value="" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold">
                         </div>
                     </div>
                     <button onclick="saveMatch()" class="w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-lg text-sm cursor-pointer">Salva Match</button>
@@ -76,7 +76,7 @@
                             <select id="leaderboardSort" onchange="updateUI()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
                                 <option value="elo">Punti ELO</option>
                                 <option value="winRate">Win Rate</option>
-                                <option value="matches">Partite Giocate</option>
+                                <option value="points">Punteggio</option> 
                             </select>
                         </label>
                         <label class="text-sm text-slate-600">
@@ -90,10 +90,11 @@
                         <thead>
                             <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase border-b border-slate-100">
                                 <th class="py-3 px-6">Giocatore</th>
-                                <th class="py-3 px-4 text-center">PG</th> <th class="py-3 px-4 text-center">V</th>
+                                <th class="py-3 px-4 text-center">PG</th> 
+                                <th class="py-3 px-4 text-center">V</th>
                                 <th class="py-3 px-4 text-center">S</th>
                                 <th class="py-3 px-4 text-center">Punti +/-</th>
-                                <th class="py-3 px-6 text-right">Win Rate</th>
+                                <th id="dynamicHeader" class="py-3 px-6 text-right">Punti ELO</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboardBody" class="divide-y divide-slate-100 text-sm"></tbody>
@@ -109,7 +110,7 @@
 
         async function updateUI() {
             const { data: dbPlayers } = await _supabase.from('players').select('*');
-            const { data: dbMatches } = await _supabase.from('matches').select('*');
+            const { data: dbMatches } = await _supabase.from('matches').select('*').order('id', { ascending: true });
 
             const players = dbPlayers || [];
             const matches = dbMatches || [];
@@ -118,55 +119,109 @@
             
             const p1Sel = document.getElementById('p1Select');
             const p2Sel = document.getElementById('p2Select');
-            p1Sel.innerHTML = p2Sel.innerHTML = "";
+
+            // Inseriamo una scelta finta e disabilitata come prima opzione
+            p1Sel.innerHTML = '<option value="" disabled selected>...</option>';
+            p2Sel.innerHTML = '<option value="" disabled selected>...</option>';
+
             players.forEach(p => {
                 p1Sel.innerHTML += `<option value="${p.name}">${p.name}</option>`;
                 p2Sel.innerHTML += `<option value="${p.name}">${p.name}</option>`;
             });
 
             let stats = {};
-            players.forEach(p => stats[p.name] = { v: 0, s: 0, fatti: 0, subiti: 0, avatar_url: p.avatar_url || '' });
+            // Ogni giocatore parte con 1000 punti ELO di base
+            players.forEach(p => stats[p.name] = { elo: 1000, v: 0, s: 0, fatti: 0, subiti: 0, avatar_url: p.avatar_url || '' });
 
             matches.forEach(m => {
                 if(!stats[m.p1] || !stats[m.p2]) return;
+                
+                // Statistiche base (punti e V/S)
                 stats[m.p1].fatti += m.s1; stats[m.p1].subiti += m.s2;
                 stats[m.p2].fatti += m.s2; stats[m.p2].subiti += m.s1;
-                if(m.s1 > m.s2) { stats[m.p1].v++; stats[m.p2].s++; }
+                
+                const p1Vince = m.s1 > m.s2;
+                if(p1Vince) { stats[m.p1].v++; stats[m.p2].s++; }
                 else { stats[m.p2].v++; stats[m.p1].s++; }
+
+                // --- ALGORITMO ELO UFFICIALE ---
+                const r1 = stats[m.p1].elo;
+                const r2 = stats[m.p2].elo;
+
+                // Calcolo della probabilità di vittoria attesa per entrambi
+                const e1 = 1 / (1 + Math.pow(10, (r2 - r1) / 400));
+                const e2 = 1 / (1 + Math.pow(10, (r1 - r2) / 400));
+
+                // Risultato reale (1 = Vittoria, 0 = Sconfitta)
+                const outcome1 = p1Vince ? 1 : 0;
+                const outcome2 = p1Vince ? 0 : 1;
+
+                // Il K-Factor determina quanti punti si muovono al massimo a partita (32 è lo standard)
+                const K = 32;
+
+                // Aggiornamento dei punti ELO nel tempo
+                stats[m.p1].elo = Math.round(r1 + K * (outcome1 - e1));
+                stats[m.p2].elo = Math.round(r2 + K * (outcome2 - e2));
             });
 
+            // Generiamo la classifica ordinando direttamente per i punti ELO
+            // Generiamo la classifica ordinando direttamente per i punti ELO o altri criteri
             let ranked = players.map(p => {
                 const total = stats[p.name].v + stats[p.name].s;
                 const rate = total > 0 ? Math.round((stats[p.name].v / total) * 100) : 0;
                 const diff = stats[p.name].fatti - stats[p.name].subiti;
-                const eloScore = 1000 + (stats[p.name].v * 30) + (diff * 5) + (rate * 2);
-                return { name: p.name, ...stats[p.name], rate, total, diff, eloScore };
+                const simplePoints = stats[p.name].v; // 1 punto a vittoria = totale vittorie!
+                return { name: p.name, ...stats[p.name], rate, total, diff, simplePoints };
             }).filter(p => p.total >= minMatches).sort((a,b) => {
-                if (sortMode === 'matches') {
-                    return b.total - a.total || b.rate - a.rate || b.diff - a.diff;
+                // Se ordiniamo per Punti Classici
+                if (sortMode === 'points') {
+                    return b.simplePoints - a.simplePoints || b.elo - a.elo || b.diff - a.diff;
                 }
-
+                // Se ordiniamo per Win Rate
                 if (sortMode === 'winRate') {
-                    return b.rate - a.rate || b.total - a.total || b.diff - a.diff;
+                    return b.rate - a.rate || b.elo - a.elo || b.diff - a.diff;
                 }
-
-                return b.eloScore - a.eloScore || b.rate - a.rate || b.total - a.total || b.diff - a.diff;
+                // Di base ordiniamo per ELO
+                return b.elo - a.elo || b.rate - a.rate || b.total - a.total;
             });
 
-            document.getElementById('leaderboardBody').innerHTML = ranked.map(p => `
-                <tr class="hover:bg-slate-50/70">
-                    <td class="py-4 px-6 font-medium">
-                        <div class="flex items-center gap-3">
-                            ${renderAvatar(p.avatar_url, p.name, 'w-9 h-9')}
-                            <a href="player.html?name=${encodeURIComponent(p.name)}" class="text-emerald-600 hover:underline">${p.name}</a>
-                        </div>
-                    </td>
-                    <td class="py-4 px-4 text-center font-medium text-slate-500">${p.total}</td>
-                    <td class="py-4 px-4 text-center font-semibold text-emerald-600">${p.v}</td> <td class="py-4 px-4 text-center font-semibold text-rose-500">${p.s}</td>
-                    <td class="py-4 px-4 text-center text-slate-500">${p.fatti}:${p.subiti}</td>
-                    <td class="py-4 px-6 text-right font-bold">${p.rate}%</td>
-                </tr>
-            `).join('');
+            // 1. Cambia il testo del TH in base al filtro selezionato
+            const dynamicHeader = document.getElementById('dynamicHeader');
+            if (sortMode === 'winRate') {
+                dynamicHeader.innerText = "Win Rate";
+            } else if (sortMode === 'points') {
+                dynamicHeader.innerText = "Punteggio"; // <-- Aggiornato
+            } else {
+                dynamicHeader.innerText = "Punti ELO";
+            }
+
+            // 2. Genera le righe della tabella iniettando il valore corretto
+            document.getElementById('leaderboardBody').innerHTML = ranked.map(p => {
+                let displayValue = "";
+                if (sortMode === 'winRate') {
+                    displayValue = `${p.rate}%`;
+                } else if (sortMode === 'points') {
+                    displayValue = `${p.simplePoints} pt`; // <-- Aggiornato
+                } else {
+                    displayValue = `${p.elo} pts`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50/70">
+                        <td class="py-4 px-6 font-medium">
+                            <div class="flex items-center gap-3">
+                                ${renderAvatar(p.avatar_url, p.name, 'w-9 h-9')}
+                                <a href="player.html?name=${encodeURIComponent(p.name)}" class="text-emerald-600 hover:underline">${p.name}</a>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4 text-center font-medium text-slate-500">${p.total}</td>
+                        <td class="py-4 px-4 text-center font-semibold text-emerald-600">${p.v}</td> 
+                        <td class="py-4 px-4 text-center font-semibold text-rose-500">${p.s}</td>
+                        <td class="py-4 px-4 text-center text-slate-500">${p.fatti}:${p.subiti}</td>
+                        <td class="py-4 px-6 text-right font-bold text-emerald-600">${displayValue}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         document.getElementById('playerAvatarFile').addEventListener('change', event => {
@@ -214,12 +269,17 @@
         async function saveMatch() {
             const p1 = document.getElementById('p1Select').value;
             const p2 = document.getElementById('p2Select').value;
-            const s1 = parseInt(document.getElementById('p1Score').value);
-            const s2 = parseInt(document.getElementById('p2Score').value);
-            if(p1 === p2 || s1 === s2) return alert("Controlla i dati inseriti!");
+            const s1 = parseInt(document.getElementById('p1Score').value, 10);
+            const s2 = parseInt(document.getElementById('p2Score').value, 10);
+
+            // Controllo di sicurezza: blocca se i campi sono vuoti (NaN) o se i dati sono uguali
+            if(p1 === p2 || isNaN(s1) || isNaN(s2) || s1 === s2) {
+                return alert("Controlla i dati inseriti! Assicurati di aver inserito entrambi i punteggi e che non ci sia un pareggio.");
+            }
+
             await _supabase.from('matches').insert([{ p1, p2, s1, s2 }]);
-            document.getElementById('p1Score').value = 0;
-            document.getElementById('p2Score').value = 0;
+            document.getElementById('p1Score').value = "";
+            document.getElementById('p2Score').value = "";
             updateUI();
         }
 

@@ -48,14 +48,18 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Punti ELO</p>
+                <p id="statElo" class="text-2xl font-bold text-emerald-600 mt-1">1000</p>
+            </div>
             <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
                 <p class="text-xs font-semibold text-slate-400 uppercase">Partite Giocate</p>
                 <p id="statTotal" class="text-2xl font-bold text-slate-800 mt-1">0</p>
             </div>
             <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
                 <p class="text-xs font-semibold text-slate-400 uppercase">Win Rate</p>
-                <p id="statWinRate" class="text-2xl font-bold text-emerald-600 mt-1">0%</p>
+                <p id="statWinRate" class="text-2xl font-bold text-slate-700 mt-1">0%</p>
             </div>
             <div class="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-xs">
                 <p class="text-xs font-semibold text-slate-400 uppercase">Vittorie / Sconfitte</p>
@@ -70,6 +74,7 @@
                 <p id="statSubiti" class="text-2xl font-bold text-slate-700 mt-1">0</p>
             </div>
         </div>
+
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <div class="p-6 border-b border-slate-100">
                 <h2 class="text-lg font-semibold text-slate-900">Le sue Partite</h2>
@@ -82,13 +87,12 @@
 
     <script src="js/db.js"></script>
     <script>
-        // Estrapoliamo il nome dall'URL (?name=Marco)
         const urlParams = new URLSearchParams(window.location.search);
         const playerName = urlParams.get('name');
         let selectedProfileAvatarFile = null;
 
         if(!playerName) {
-            window.location.href = 'index.html'; // Ritorna alla home se manca il parametro
+            window.location.href = 'index.html';
         }
 
         document.getElementById('playerTitle').innerText = playerName;
@@ -154,53 +158,68 @@
             document.getElementById('profileAvatarPreview').innerHTML = renderAvatar(player?.avatar_url || '', playerName, 'w-24 h-24');
             document.getElementById('profileAvatarUrl').value = player?.avatar_url || '';
 
-            // Risolto: racchiudiamo playerName tra virgolette doppie ("") all'interno del filtro
-            // in modo che Supabase accetti anche nomi con spazi o caratteri speciali
-            const { data: matches, error } = await _supabase
-                .from('matches')
-                .select('*')
-                .or(`p1.eq."${playerName}",p2.eq."${playerName}"`)
-                .order('id', { ascending: false });
+            const { data: allMatches, error } = await _supabase.from('matches').select('*').order('id', { ascending: true });
 
-            if (error) {
+            if (error || !allMatches) {
                 console.error("Errore Supabase:", error);
                 document.getElementById('playerHistoryList').innerHTML = `<p class="p-6 text-center text-rose-500">Errore nel caricamento del database.</p>`;
                 return;
             }
 
-            if(!matches || matches.length === 0) {
+            let stats = {};
+            (dbPlayers || []).forEach(p => stats[p.name] = { elo: 1000, v: 0, s: 0, fatti: 0, subiti: 0 });
+
+            allMatches.forEach(m => {
+                if(!stats[m.p1] || !stats[m.p2]) return;
+                
+                stats[m.p1].fatti += m.s1; stats[m.p1].subiti += m.s2;
+                stats[m.p2].fatti += m.s2; stats[m.p2].subiti += m.s1;
+                
+                const p1Vince = m.s1 > m.s2;
+                if(p1Vince) { stats[m.p1].v++; stats[m.p2].s++; }
+                else { stats[m.p2].v++; stats[m.p1].s++; }
+
+                const r1 = stats[m.p1].elo; const r2 = stats[m.p2].elo;
+                const e1 = 1 / (1 + Math.pow(10, (r2 - r1) / 400));
+                const e2 = 1 / (1 + Math.pow(10, (r1 - r2) / 400));
+                const outcome1 = p1Vince ? 1 : 0; const outcome2 = p1Vince ? 0 : 1;
+                const K = 32;
+
+                stats[m.p1].elo = Math.round(r1 + K * (outcome1 - e1));
+                stats[m.p2].elo = Math.round(r2 + K * (outcome2 - e2));
+            });
+
+            const pStats = stats[playerName] || { elo: 1000, v: 0, s: 0, fatti: 0, subiti: 0 };
+            const total = pStats.v + pStats.s;
+            const winRate = total > 0 ? Math.round((pStats.v / total) * 100) : 0;
+
+            document.getElementById('statTotal').innerText = total; 
+            document.getElementById('statWinRate').innerText = `${winRate}%`;
+            document.getElementById('statRecord').innerText = `${pStats.v} - ${pStats.s}`;
+            document.getElementById('statFatti').innerText = pStats.fatti;
+            document.getElementById('statSubiti').innerText = pStats.subiti;            
+            document.getElementById('statElo').innerText = `${pStats.elo} pts`; 
+
+            const playerMatches = allMatches
+                .filter(m => m.p1 === playerName || m.p2 === playerName)
+                .reverse();
+
+            if(playerMatches.length === 0) {
                 document.getElementById('playerHistoryList').innerHTML = `<p class="p-6 text-center text-slate-400">Nessuna partita registrata per questo giocatore.</p>`;
                 return;
             }
 
-            // Calcolo statistiche personali
-            let v = 0, s = 0, fatti = 0, subiti = 0;
-
-            matches.forEach(m => {
-                if(m.p1 === playerName) {
-                    fatti += m.s1; subiti += m.s2;
-                    if(m.s1 > m.s2) v++; else s++;
-                } else {
-                    fatti += m.s2; subiti += m.s1;
-                    if(m.s2 > m.s1) v++; else s++;
-                }
-            });
-
-            const total = v + s;
-            const winRate = total > 0 ? Math.round((v / total) * 100) : 0;
-
-            // Aggiorna contatori visivi
-            document.getElementById('statTotal').innerText = total; // <-- Aggiungi questa linea
-            document.getElementById('statWinRate').innerText = `${winRate}%`;
-            document.getElementById('statRecord').innerText = `${v} - ${s}`;
-            document.getElementById('statFatti').innerText = fatti;
-            document.getElementById('statSubiti').innerText = subiti;            // Renderizza la lista dei suoi match
-            document.getElementById('playerHistoryList').innerHTML = matches.map(m => {
+            document.getElementById('playerHistoryList').innerHTML = playerMatches.map(m => {
                 const ioP1 = m.p1 === playerName;
                 const hoVinto = ioP1 ? (m.s1 > m.s2) : (m.s2 > m.s1);
                 const avversario = ioP1 ? m.p2 : m.p1;
                 const mioPunteggio = ioP1 ? m.s1 : m.s2;
                 const suoPunteggio = ioP1 ? m.s2 : m.s1;
+
+                // Formatta la data escludendo l'orario
+                const matchDate = new Date(m.created_at).toLocaleDateString('it-IT', {
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                });
 
                 return `
                     <div class="p-4 sm:p-6 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
@@ -214,8 +233,12 @@
                                 <span>${avversario}</span>
                             </a>
                         </div>
-                        <div class="font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">
-                            ${mioPunteggio} - ${suoPunteggio}
+                        
+                        <div class="flex flex-col items-end gap-1">
+                            <div class="font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">
+                                ${mioPunteggio} - ${suoPunteggio}
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-medium tracking-wide">${matchDate}</span>
                         </div>
                     </div>
                 `;
