@@ -7,17 +7,19 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen" data-page="storico">
 
-    <nav class="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-10 shadow-xs">
+    <nav class="bg-[#0D2745] border-b border-[#1a3a5c] py-4 px-6 sticky top-0 z-10 shadow-md">
         <div class="max-w-3xl mx-auto flex justify-between items-center">
-            <a href="index.html" class="text-xl font-bold text-slate-900 flex items-center gap-2 no-underline">
-                🏓 <span class="text-emerald-600">Office</span>Pong
+            <a href="index.html" class="text-xl font-bold text-white flex items-center gap-2 no-underline">
+                🏓 <span class="text-[#A5D62C]">Office</span>Pong
             </a>
-            <div class="flex items-center gap-6 text-sm font-medium">
-                <a href="index.html" class="text-slate-600 hover:text-emerald-600 transition-colors">Classifica</a>
-                <a href="history.html" class="text-emerald-600 font-semibold">Storico Partite</a>
-                <button onclick="signOut()" class="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors">Esci</button>
+            <div class="flex items-center gap-4 text-sm font-medium">
+                <div class="opc-navlinks flex items-center gap-6">
+                    <a href="index.html" class="text-slate-400 hover:text-[#A5D62C] transition-colors">Classifica</a>
+                    <a href="history.html" class="text-[#A5D62C] font-semibold">Storico Partite</a>
+                </div>
+                <button onclick="signOut()" class="px-3 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-rose-400 hover:border-rose-500 hover:bg-rose-500/10 transition-colors">Esci</button>
             </div>
         </div>
     </nav>
@@ -34,6 +36,63 @@
             </div>
         </div>
     </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="opc-bn">
+        <a href="index.html" class="opc-bn-tab" data-page="classifica">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Classifica</span>
+        </a>
+        <button class="opc-bn-fab" onclick="openMatchModal()" aria-label="Nuova partita">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <a href="history.html" class="opc-bn-tab" data-page="storico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Storico</span>
+        </a>
+    </nav>
+
+    <!-- Match Modal -->
+    <div class="opc-overlay" id="_opcOverlay" onclick="closeMatchModal()"></div>
+    <div class="opc-modal" id="_opcModal" role="dialog" aria-modal="true" aria-labelledby="_opcModalTitle">
+        <div class="opc-modal-handle"></div>
+        <div class="opc-modal-head">
+            <h2 class="opc-modal-title" id="_opcModalTitle">🏓 Nuova Partita</h2>
+            <button class="opc-modal-close" onclick="closeMatchModal()" aria-label="Chiudi">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="opc-modal-body">
+            <div class="opc-modal-selects">
+                <div class="opc-modal-field">
+                    <label for="_modalP1">Giocatore 1</label>
+                    <select id="_modalP1"><option value="" disabled selected>Caricamento...</option></select>
+                </div>
+                <div class="opc-modal-field">
+                    <label for="_modalP2">Giocatore 2</label>
+                    <select id="_modalP2"><option value="" disabled selected>Caricamento...</option></select>
+                </div>
+            </div>
+            <div class="opc-scores">
+                <div class="opc-score-block">
+                    <div class="opc-score-ctrl">
+                        <button class="opc-score-btn opc-score-minus" onclick="changeScore(1,-1)" aria-label="Diminuisci">−</button>
+                        <input type="number" class="opc-score-num" id="_modalS1" value="0" min="0" inputmode="numeric" onfocus="this.select()" aria-label="Punteggio giocatore 1">
+                        <button class="opc-score-btn opc-score-plus" onclick="changeScore(1,1)" aria-label="Aumenta">+</button>
+                    </div>
+                </div>
+                <div class="opc-score-sep">vs</div>
+                <div class="opc-score-block">
+                    <div class="opc-score-ctrl">
+                        <button class="opc-score-btn opc-score-minus" onclick="changeScore(2,-1)" aria-label="Diminuisci">−</button>
+                        <input type="number" class="opc-score-num" id="_modalS2" value="0" min="0" inputmode="numeric" onfocus="this.select()" aria-label="Punteggio giocatore 2">
+                        <button class="opc-score-btn opc-score-plus" onclick="changeScore(2,1)" aria-label="Aumenta">+</button>
+                    </div>
+                </div>
+            </div>
+            <button class="opc-modal-save" id="_modalSaveBtn" onclick="saveModalMatch()">Salva Partita</button>
+        </div>
+    </div>
 
     <script src="js/db.js"></script>
     <script>
@@ -65,32 +124,57 @@
                 });
 
                 return `
-                    <div class="p-4 sm:p-6 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
-                        <div class="w-2/5 text-left">
-                            <a href="player.html?name=${encodeURIComponent(m.p1)}" class="inline-flex items-center gap-2 font-semibold ${g1Vince ? 'text-slate-900 font-bold' : 'text-slate-500'}">
-                                ${renderAvatar(p1Avatar, m.p1, 'w-8 h-8')}
-                                <span>${m.p1}</span>
-                            </a>
-                            ${g1Vince ? '👑' : ''}
+                    <div class="p-3 sm:p-5 flex items-center gap-2 hover:bg-slate-50/50 transition-colors">
+                        <div class="flex-1 min-w-0 flex items-center gap-2">
+                            
+                            <a href="player.html?name=${encodeURIComponent(m.p1)}" class="font-semibold truncate ${g1Vince ? 'text-slate-900' : 'text-slate-400'}">${m.p1}</a>
+                            ${g1Vince ? '<span class="shrink-0 leading-none">👑</span>' : ''}
                         </div>
-                        
-                        <div class="w-1/5 flex flex-col items-center justify-center gap-1.5">
-                            <div class="bg-slate-100 py-1.5 px-3 rounded-lg font-mono font-bold text-slate-700 shadow-inner">
-                                ${m.s1} - ${m.s2}
-                            </div>
-                            <span class="text-[10px] text-slate-400 font-medium tracking-wide whitespace-nowrap">${matchDate}</span>
+                        <div class="shrink-0 flex flex-col items-center gap-1 px-1">
+                            <div class="bg-slate-100 py-1 px-2.5 rounded-lg font-mono font-bold text-slate-700 text-sm whitespace-nowrap shadow-inner">${m.s1} – ${m.s2}</div>
+                            <span class="text-[9px] text-slate-400 font-medium tracking-wide whitespace-nowrap">${matchDate}</span>
                         </div>
-                        
-                        <div class="w-2/5 text-right">
-                            ${!g1Vince ? '👑' : ''}
-                            <a href="player.html?name=${encodeURIComponent(m.p2)}" class="inline-flex items-center gap-2 justify-end font-semibold ${!g1Vince ? 'text-slate-900 font-bold' : 'text-slate-500'}">
-                                <span>${m.p2}</span>
-                                ${renderAvatar(p2Avatar, m.p2, 'w-8 h-8')}
-                            </a>
+                        <div class="flex-1 min-w-0 flex items-center gap-2 justify-end">
+                            ${!g1Vince ? '<span class="shrink-0 leading-none">👑</span>' : ''}
+                            <a href="player.html?name=${encodeURIComponent(m.p2)}" class="font-semibold truncate text-right ${!g1Vince ? 'text-slate-900' : 'text-slate-400'}">${m.p2}</a>
+                            
+                        </div>
+                        <div class="shrink-0 flex items-center gap-0.5 pl-2 border-l border-slate-100">
+                            <button data-p1="${m.p1.replace(/"/g, '&quot;')}" data-p2="${m.p2.replace(/"/g, '&quot;')}" onclick="openMatchModal(this.dataset.p1,this.dataset.p2)" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors text-base" title="Rivincita">⚡</button>
+                            ${isAdmin() ? `
+                            <button data-matchid="${m.id}" data-p1="${m.p1.replace(/"/g, '&quot;')}" data-p2="${m.p2.replace(/"/g, '&quot;')}" data-s1="${m.s1}" data-s2="${m.s2}" onclick="openEditModal(this)" class="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors text-base" title="Modifica risultato">✏️</button>
+                            <button onclick="deleteMatch(this,${m.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors text-base" title="Elimina partita">🗑️</button>
+                            ` : ''}
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        async function deleteMatch(btn, matchId) {
+            if (!btn.dataset.confirm) {
+                btn.dataset.confirm = '1';
+                btn.dataset.orig = btn.innerHTML;
+                btn.innerHTML = '✕';
+                btn.classList.add('text-rose-600', 'bg-rose-50');
+                setTimeout(function () {
+                    if (btn.dataset.confirm) {
+                        btn.dataset.confirm = '';
+                        btn.innerHTML = btn.dataset.orig || '🗑️';
+                        btn.classList.remove('text-rose-600', 'bg-rose-50');
+                    }
+                }, 3000);
+                return;
+            }
+            btn.disabled = true;
+            const { error } = await _supabase.from('matches').delete().eq('id', matchId);
+            if (error) {
+                showToast('Errore durante l\'eliminazione', 'error');
+                btn.disabled = false;
+                return;
+            }
+            showToast('Partita eliminata');
+            loadHistory();
         }
 
         initAuthGate().then(session => {

@@ -7,17 +7,19 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen" data-page="profilo">
 
-    <nav class="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-10 shadow-xs">
+    <nav class="bg-[#0D2745] border-b border-[#1a3a5c] py-4 px-6 sticky top-0 z-10 shadow-md">
         <div class="max-w-3xl mx-auto flex justify-between items-center">
-            <a href="index.html" class="text-xl font-bold text-slate-900 flex items-center gap-2 no-underline">
-                🏓 <span class="text-emerald-600">Office</span>Pong
+            <a href="index.html" class="text-xl font-bold text-white flex items-center gap-2 no-underline">
+                🏓 <span class="text-[#A5D62C]">Office</span>Pong
             </a>
-            <div class="flex items-center gap-6 text-sm font-medium">
-                <a href="index.html" class="text-slate-600 hover:text-emerald-600 transition-colors">Classifica</a>
-                <a href="history.html" class="text-slate-600 hover:text-emerald-600 transition-colors">Storico Partite</a>
-                <button onclick="signOut()" class="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors">Esci</button>
+            <div class="flex items-center gap-4 text-sm font-medium">
+                <div class="opc-navlinks flex items-center gap-6">
+                    <a href="index.html" class="text-slate-400 hover:text-[#A5D62C] transition-colors">Classifica</a>
+                    <a href="history.html" class="text-slate-400 hover:text-[#A5D62C] transition-colors">Storico Partite</a>
+                </div>
+                <button onclick="signOut()" class="px-3 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-rose-400 hover:border-rose-500 hover:bg-rose-500/10 transition-colors">Esci</button>
             </div>
         </div>
     </nav>
@@ -75,6 +77,10 @@
             </div>
         </div>
 
+        <div id="eloChartSection"></div>
+
+        <div id="h2hSection"></div>
+
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <div class="p-6 border-b border-slate-100">
                 <h2 class="text-lg font-semibold text-slate-900">Le sue Partite</h2>
@@ -85,8 +91,147 @@
         </div>
     </main>
 
+    <!-- Bottom Navigation -->
+    <nav class="opc-bn">
+        <a href="index.html" class="opc-bn-tab" data-page="classifica">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Classifica</span>
+        </a>
+        <button class="opc-bn-fab" onclick="openMatchModal()" aria-label="Nuova partita">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <a href="history.html" class="opc-bn-tab" data-page="storico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Storico</span>
+        </a>
+    </nav>
+
+    <!-- Match Modal -->
+    <div class="opc-overlay" id="_opcOverlay" onclick="closeMatchModal()"></div>
+    <div class="opc-modal" id="_opcModal" role="dialog" aria-modal="true" aria-labelledby="_opcModalTitle">
+        <div class="opc-modal-handle"></div>
+        <div class="opc-modal-head">
+            <h2 class="opc-modal-title" id="_opcModalTitle">🏓 Nuova Partita</h2>
+            <button class="opc-modal-close" onclick="closeMatchModal()" aria-label="Chiudi">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="opc-modal-body">
+            <div class="opc-modal-selects">
+                <div class="opc-modal-field">
+                    <label for="_modalP1">Giocatore 1</label>
+                    <select id="_modalP1"><option value="" disabled selected>Caricamento...</option></select>
+                </div>
+                <div class="opc-modal-field">
+                    <label for="_modalP2">Giocatore 2</label>
+                    <select id="_modalP2"><option value="" disabled selected>Caricamento...</option></select>
+                </div>
+            </div>
+            <div class="opc-scores">
+                <div class="opc-score-block">
+                    <div class="opc-score-ctrl">
+                        <button class="opc-score-btn opc-score-minus" onclick="changeScore(1,-1)" aria-label="Diminuisci">−</button>
+                        <input type="number" class="opc-score-num" id="_modalS1" value="0" min="0" inputmode="numeric" onfocus="this.select()" aria-label="Punteggio giocatore 1">
+                        <button class="opc-score-btn opc-score-plus" onclick="changeScore(1,1)" aria-label="Aumenta">+</button>
+                    </div>
+                </div>
+                <div class="opc-score-sep">vs</div>
+                <div class="opc-score-block">
+                    <div class="opc-score-ctrl">
+                        <button class="opc-score-btn opc-score-minus" onclick="changeScore(2,-1)" aria-label="Diminuisci">−</button>
+                        <input type="number" class="opc-score-num" id="_modalS2" value="0" min="0" inputmode="numeric" onfocus="this.select()" aria-label="Punteggio giocatore 2">
+                        <button class="opc-score-btn opc-score-plus" onclick="changeScore(2,1)" aria-label="Aumenta">+</button>
+                    </div>
+                </div>
+            </div>
+            <button class="opc-modal-save" id="_modalSaveBtn" onclick="saveModalMatch()">Salva Partita</button>
+        </div>
+    </div>
+
     <script src="js/db.js"></script>
     <script>
+        function renderEloChart(history) {
+            if (history.length < 2) return '';
+
+            const W = 400, H = 110;
+            const pad = { top: 14, right: 14, bottom: 20, left: 46 };
+            const plotW = W - pad.left - pad.right;
+            const plotH = H - pad.top - pad.bottom;
+
+            const elos = history.map(p => p.elo);
+            const rawMin = Math.min(...elos);
+            const rawMax = Math.max(...elos);
+            const margin = Math.max(20, Math.round((rawMax - rawMin) * 0.15));
+            const minElo = rawMin - margin;
+            const maxElo = rawMax + margin;
+            const range = maxElo - minElo;
+
+            const toX = i => pad.left + (i / (history.length - 1)) * plotW;
+            const toY = elo => pad.top + plotH - ((elo - minElo) / range) * plotH;
+
+            // Catmull-Rom → cubic Bézier smooth path
+            const coords = history.map((p, i) => [toX(i), toY(p.elo)]);
+            function smoothD(pts) {
+                let d = `M ${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const p0 = pts[Math.max(i - 1, 0)];
+                    const p1 = pts[i];
+                    const p2 = pts[i + 1];
+                    const p3 = pts[Math.min(i + 2, pts.length - 1)];
+                    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+                    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+                    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+                    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+                    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+                }
+                return d;
+            }
+
+            const linePath = smoothD(coords);
+            const base = toY(1000).toFixed(2);
+            const areaD = `${linePath} L ${coords[coords.length-1][0].toFixed(2)},${base} L ${coords[0][0].toFixed(2)},${base} Z`;
+
+            const last = history[history.length - 1].elo;
+            const color = last >= 1000 ? '#10b981' : '#f43f5e';
+
+            const ticks = [...new Set([rawMin, 1000, rawMax])];
+            const ticksHtml = ticks.map(v => `
+                <line x1="${pad.left - 4}" y1="${toY(v).toFixed(2)}" x2="${W - pad.right}" y2="${toY(v).toFixed(2)}"
+                      stroke="${v === 1000 ? '#cbd5e1' : '#f1f5f9'}" stroke-width="1" stroke-dasharray="${v === 1000 ? '4,3' : '2,4'}"/>
+                <text x="${pad.left - 7}" y="${(toY(v) + 3.5).toFixed(2)}" font-size="9" fill="#94a3b8" text-anchor="end">${v}</text>
+            `).join('');
+
+            const step = Math.max(1, Math.floor(history.length / 20));
+            const dotsHtml = history
+                .filter((_, i) => i === 0 || i === history.length - 1 || i % step === 0)
+                .map((_, i) => `<circle cx="${toX(i).toFixed(2)}" cy="${toY(history[i].elo).toFixed(2)}" r="2.5" fill="${color}" stroke="white" stroke-width="1.5"/>`)
+                .join('');
+
+            return `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h2 class="text-base font-semibold text-slate-900">Storico ELO</h2>
+                        <span class="text-sm font-bold ${last >= 1000 ? 'text-emerald-600' : 'text-rose-500'}">${last} pts</span>
+                    </div>
+                    <div class="px-4 pt-3 pb-2">
+                        <svg viewBox="0 0 ${W} ${H}" class="w-full" overflow="visible" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="opcEloGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>
+                                    <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+                                </linearGradient>
+                            </defs>
+                            ${ticksHtml}
+                            <path d="${areaD}" fill="url(#opcEloGrad)"/>
+                            <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+                            ${dotsHtml}
+                        </svg>
+                        <p class="text-[10px] text-slate-400 text-center mt-0.5">${history.length - 1} partite · partenza 1000 pts</p>
+                    </div>
+                </div>
+            `;
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const playerName = urlParams.get('name');
         let selectedProfileAvatarFile = null;
@@ -169,12 +314,14 @@
             let stats = {};
             (dbPlayers || []).forEach(p => stats[p.name] = { elo: 1000, v: 0, s: 0, fatti: 0, subiti: 0 });
 
+            const eloHistory = [{ elo: 1000 }];
+
             allMatches.forEach(m => {
                 if(!stats[m.p1] || !stats[m.p2]) return;
-                
+
                 stats[m.p1].fatti += m.s1; stats[m.p1].subiti += m.s2;
                 stats[m.p2].fatti += m.s2; stats[m.p2].subiti += m.s1;
-                
+
                 const p1Vince = m.s1 > m.s2;
                 if(p1Vince) { stats[m.p1].v++; stats[m.p2].s++; }
                 else { stats[m.p2].v++; stats[m.p1].s++; }
@@ -187,7 +334,13 @@
 
                 stats[m.p1].elo = Math.round(r1 + K * (outcome1 - e1));
                 stats[m.p2].elo = Math.round(r2 + K * (outcome2 - e2));
+
+                if (m.p1 === playerName || m.p2 === playerName) {
+                    eloHistory.push({ elo: stats[playerName].elo });
+                }
             });
+
+            document.getElementById('eloChartSection').innerHTML = renderEloChart(eloHistory);
 
             const pStats = stats[playerName] || { elo: 1000, v: 0, s: 0, fatti: 0, subiti: 0 };
             const total = pStats.v + pStats.s;
@@ -203,6 +356,45 @@
             const playerMatches = allMatches
                 .filter(m => m.p1 === playerName || m.p2 === playerName)
                 .reverse();
+
+            // ── HEAD-TO-HEAD ─────────────────────────────────
+            const h2h = {};
+            playerMatches.forEach(m => {
+                const ioP1 = m.p1 === playerName;
+                const opp = ioP1 ? m.p2 : m.p1;
+                const won = ioP1 ? m.s1 > m.s2 : m.s2 > m.s1;
+                if (!h2h[opp]) h2h[opp] = { v: 0, s: 0 };
+                won ? h2h[opp].v++ : h2h[opp].s++;
+            });
+
+            const h2hRows = Object.entries(h2h)
+                .sort((a, b) => (b[1].v + b[1].s) - (a[1].v + a[1].s));
+
+            document.getElementById('h2hSection').innerHTML = h2hRows.length === 0 ? '' : `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="p-5 border-b border-slate-100">
+                        <h2 class="text-base font-semibold text-slate-900">Scontri Diretti</h2>
+                    </div>
+                    <div class="divide-y divide-slate-100">
+                        ${h2hRows.map(([opp, rec]) => {
+                            const total = rec.v + rec.s;
+                            const rate = Math.round((rec.v / total) * 100);
+                            const dominant = rec.v > rec.s;
+                            const pari = rec.v === rec.s;
+                            return `
+                                <div class="px-5 py-3 flex items-center gap-3">
+                                    ${renderAvatar(avatars.get(opp) || '', opp, 'w-8 h-8')}
+                                    <a href="player.html?name=${encodeURIComponent(opp)}" class="flex-1 min-w-0 font-semibold text-slate-800 hover:underline truncate">${opp}</a>
+                                    <div class="shrink-0 flex items-center gap-2.5">
+                                        <span class="font-mono text-sm font-bold ${dominant ? 'text-emerald-600' : pari ? 'text-slate-500' : 'text-rose-500'}">${rec.v} – ${rec.s}</span>
+                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md min-w-[38px] text-center ${dominant ? 'bg-emerald-50 text-emerald-700' : pari ? 'bg-slate-100 text-slate-500' : 'bg-rose-50 text-rose-600'}">${rate}%</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
 
             if(playerMatches.length === 0) {
                 document.getElementById('playerHistoryList').innerHTML = `<p class="p-6 text-center text-slate-400">Nessuna partita registrata per questo giocatore.</p>`;
@@ -227,7 +419,7 @@
                             <span class="text-xs font-bold px-2 py-1 rounded-md ${hoVinto ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
                                 ${hoVinto ? 'VITTORIA' : 'SCONFITTA'}
                             </span>
-                            <span class="text-sm font-medium text-slate-500">Contro:</span>
+                            <span class="text-sm font-medium text-slate-500"></span>
                             <a href="player.html?name=${encodeURIComponent(avversario)}" class="flex items-center gap-2 font-semibold text-slate-800 hover:underline">
                                 ${renderAvatar(avatars.get(avversario) || '', avversario, 'w-7 h-7')}
                                 <span>${avversario}</span>
