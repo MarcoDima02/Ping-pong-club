@@ -24,17 +24,38 @@
         </div>
     </nav>
 
-    <main class="max-w-3xl mx-auto p-4 md:p-8">
+    <main class="max-w-3xl mx-auto p-4 md:p-8 space-y-4">
+
+        <!-- Calendar picker -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h2 class="text-lg font-semibold text-slate-900">Tutti i Match Giocati</h2>
-                <span id="matchCount" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-medium">0 match</span>
+            <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+                <button onclick="calNav(-1)" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors font-bold text-xl leading-none">‹</button>
+                <span id="calTitle" class="text-sm font-bold text-slate-700 capitalize">—</span>
+                <button onclick="calNav(1)"  class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors font-bold text-xl leading-none">›</button>
             </div>
-            
-            <div class="divide-y divide-slate-100" id="historyList">
-                <p class="p-6 text-center text-slate-400">Caricamento storico...</p>
+            <div class="grid grid-cols-7 px-4 pt-3 pb-0.5">
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">L</div>
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">M</div>
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">M</div>
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">G</div>
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">V</div>
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">S</div>
+                <div class="text-center text-[10px] font-bold text-slate-400 pb-1">D</div>
+            </div>
+            <div id="calGrid" class="grid grid-cols-7 gap-y-0.5 px-4 pb-3"></div>
+            <div class="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span id="matchCount" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-medium">0 match</span>
+                    <span id="calStatus" class="text-xs text-slate-400"></span>
+                </div>
+                <button onclick="resetFilter()" id="calResetBtn" style="display:none" class="text-xs font-semibold text-[#7da020] hover:text-[#0D2745] px-2.5 py-1 rounded-lg bg-[#A5D62C]/10 hover:bg-[#A5D62C]/20 transition-colors">Mostra tutto</button>
             </div>
         </div>
+
+        <div id="historyList" class="space-y-4">
+            <p class="py-12 text-center text-slate-400">Caricamento storico...</p>
+        </div>
+
     </main>
 
     <!-- Bottom Navigation -->
@@ -43,13 +64,21 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span>Classifica</span>
         </a>
-        <button class="opc-bn-fab" onclick="openMatchModal()" aria-label="Nuova partita">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
         <a href="history.html" class="opc-bn-tab" data-page="storico">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>Storico</span>
         </a>
+        <button class="opc-bn-fab" onclick="openMatchModal()" aria-label="Nuova partita">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <a href="monthly.html" class="opc-bn-tab" data-page="report">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0012 0V2z"/></svg>
+            <span>Report</span>
+        </a>
+        <button class="opc-bn-tab" onclick="openPlayerModal()" aria-label="Nuovo giocatore">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span>Giocatore</span>
+        </button>
     </nav>
 
     <!-- Match Modal -->
@@ -96,59 +125,218 @@
 
     <script src="js/db.js"></script>
     <script>
+        let _allMatches = [];
+        let _avatars    = new Map();
+        let _calYear    = new Date().getFullYear();
+        let _calMonth   = new Date().getMonth();
+        let _selDate    = null; // 'YYYY-MM-DD' or null
+
         async function loadHistory() {
-            const { data: matches, error } = await _supabase.from('matches').select('*').order('id', { ascending: false });
-            const { data: dbPlayers } = await _supabase.from('players').select('name, avatar_url');
-            const avatars = new Map((dbPlayers || []).map(player => [player.name, player.avatar_url || '']));
-            
-            if(error || !matches) {
-                document.getElementById('historyList').innerHTML = `<p class="p-6 text-center text-rose-500">Errore nel caricamento dei dati.</p>`;
+            let matches, dbPlayers;
+            try {
+                const [r1, r2] = await Promise.all([
+                    _supabase.from('matches').select('*').order('id', { ascending: false }),
+                    _supabase.from('players').select('name, avatar_url')
+                ]);
+                if (r1.error || r1.data === null) throw new Error('fetch_failed');
+                matches   = r1.data;
+                dbPlayers = r2.data || [];
+            } catch (_) {
+                setTimeout(loadHistory, 2000);
                 return;
             }
+            _avatars = new Map(dbPlayers.map(p => [p.name, p.avatar_url || '']));
 
+            _allMatches = matches;
+            renderCalendar();
+            applyFilter();
+        }
+
+        // ── CALENDAR ─────────────────────────────────────────────
+
+        function calMatchDates() {
+            const s = new Set();
+            _allMatches.forEach(m => s.add(m.created_at.slice(0, 10)));
+            return s;
+        }
+
+        function renderCalendar() {
+            const matchDates = calMatchDates();
+            const todayStr   = new Date().toISOString().slice(0, 10);
+            const MONTHS     = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                                'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+            document.getElementById('calTitle').textContent = `${MONTHS[_calMonth]} ${_calYear}`;
+
+            // Monday-first offset
+            const firstDow = new Date(_calYear, _calMonth, 1).getDay();
+            const offset   = firstDow === 0 ? 6 : firstDow - 1;
+            const days     = new Date(_calYear, _calMonth + 1, 0).getDate();
+            const cells    = Math.ceil((offset + days) / 7) * 7;
+
+            let html = '';
+            for (let i = 0; i < cells; i++) {
+                const n = i - offset + 1;
+                if (n < 1 || n > days) { html += `<div></div>`; continue; }
+
+                const mm      = String(_calMonth + 1).padStart(2, '0');
+                const dd      = String(n).padStart(2, '0');
+                const dateStr = `${_calYear}-${mm}-${dd}`;
+                const has     = matchDates.has(dateStr);
+                const isSel   = dateStr === _selDate;
+                const isToday = dateStr === todayStr;
+
+                // Base style
+                let base = 'relative flex flex-col items-center justify-center rounded-xl h-10 transition-all select-none ';
+                let num  = 'text-sm font-semibold leading-none z-10 ';
+                let dot  = '';
+
+                if (isSel) {
+                    base += 'bg-[#A5D62C] cursor-pointer';
+                    num  += 'text-[#0D2745]';
+                    dot   = `<span class="absolute bottom-1.5 w-1 h-1 rounded-full bg-[#0D2745]/40"></span>`;
+                } else if (has) {
+                    base += isToday
+                        ? 'ring-2 ring-[#A5D62C] ring-inset hover:bg-[#A5D62C]/10 cursor-pointer'
+                        : 'hover:bg-slate-100 cursor-pointer';
+                    num  += isToday ? 'text-[#6a9a00]' : 'text-slate-800';
+                    dot   = `<span class="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-[#A5D62C]"></span>`;
+                } else {
+                    base += isToday
+                        ? 'ring-2 ring-slate-200 ring-inset cursor-default'
+                        : 'cursor-default';
+                    num  += 'text-slate-300';
+                }
+
+                html += `<div class="${base}" onclick="calSelect('${dateStr}')">
+                    <span class="${num}">${n}</span>${dot}
+                </div>`;
+            }
+
+            document.getElementById('calGrid').innerHTML = html;
+        }
+
+        function calNav(delta) {
+            _calMonth += delta;
+            if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+            if (_calMonth > 11) { _calMonth = 0;  _calYear++; }
+            renderCalendar();
+        }
+
+        function calSelect(dateStr) {
+            if (_selDate === dateStr) {
+                _selDate = null;
+            } else {
+                _selDate = dateStr;
+                const d = new Date(dateStr + 'T12:00:00');
+                _calYear  = d.getFullYear();
+                _calMonth = d.getMonth();
+            }
+            renderCalendar();
+            applyFilter();
+        }
+
+        function applyFilter() {
+            const filtered = _selDate
+                ? _allMatches.filter(m => m.created_at.slice(0, 10) === _selDate)
+                : _allMatches;
+            renderHistory(filtered);
+
+            const status = document.getElementById('calStatus');
+            const reset  = document.getElementById('calResetBtn');
+            if (_selDate) {
+                const n = filtered.length;
+                const d = new Date(_selDate + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+                status.textContent = `${n} partit${n === 1 ? 'a' : 'e'} il ${d}`;
+                reset.style.display = '';
+            } else {
+                status.textContent = '';
+                reset.style.display = 'none';
+            }
+        }
+
+        function resetFilter() {
+            _selDate = null;
+            renderCalendar();
+            applyFilter();
+        }
+
+        function renderHistory(matches) {
             document.getElementById('matchCount').innerText = `${matches.length} match`;
 
-            if(matches.length === 0) {
-                document.getElementById('historyList').innerHTML = `<p class="p-6 text-center text-slate-400">Nessuna partita giocata finora.</p>`;
+            if (matches.length === 0) {
+                document.getElementById('historyList').innerHTML = `<p class="py-12 text-center text-slate-400">Nessuna partita trovata.</p>`;
                 return;
             }
 
-            document.getElementById('historyList').innerHTML = matches.map(m => {
-                const g1Vince = m.s1 > m.s2;
-                const p1Avatar = avatars.get(m.p1) || '';
-                const p2Avatar = avatars.get(m.p2) || '';
-                
-                // Formatta la data escludendo l'orario
-                const matchDate = new Date(m.created_at).toLocaleDateString('it-IT', {
+            // Group by local date string
+            const groups = {};
+            const order  = [];
+            matches.forEach(m => {
+                const key = new Date(m.created_at).toLocaleDateString('it-IT', {
                     day: '2-digit', month: '2-digit', year: 'numeric'
                 });
+                if (!groups[key]) { groups[key] = []; order.push(key); }
+                groups[key].push(m);
+            });
 
+            // Human-friendly date label
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const yest  = new Date(today); yest.setDate(today.getDate() - 1);
+
+            function dateLabel(isoStr) {
+                const d = new Date(isoStr); d.setHours(0, 0, 0, 0);
+                if (d.getTime() === today.getTime()) return 'Oggi';
+                if (d.getTime() === yest.getTime())  return 'Ieri';
+                return new Date(isoStr).toLocaleDateString('it-IT', {
+                    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                });
+            }
+
+            document.getElementById('historyList').innerHTML = order.map(key => {
+                const ms   = groups[key];
+                const label = dateLabel(ms[0].created_at);
+                const count = ms.length;
                 return `
-                    <div class="p-3 sm:p-5 flex items-center gap-2 hover:bg-slate-50/50 transition-colors">
-                        <div class="flex-1 min-w-0 flex items-center gap-2">
-                            
-                            <a href="player.html?name=${encodeURIComponent(m.p1)}" class="font-semibold truncate ${g1Vince ? 'text-slate-900' : 'text-slate-400'}">${m.p1}</a>
-                            ${g1Vince ? '<span class="shrink-0 leading-none">👑</span>' : ''}
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                        <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+                            <span class="text-sm font-bold text-slate-700 capitalize">${label}</span>
+                            <span class="text-xs text-slate-400 font-medium">${count} partit${count === 1 ? 'a' : 'e'}</span>
                         </div>
-                        <div class="shrink-0 flex flex-col items-center gap-1 px-1">
-                            <div class="bg-slate-100 py-1 px-2.5 rounded-lg font-mono font-bold text-slate-700 text-sm whitespace-nowrap shadow-inner">${m.s1} – ${m.s2}</div>
-                            <span class="text-[9px] text-slate-400 font-medium tracking-wide whitespace-nowrap">${matchDate}</span>
-                        </div>
-                        <div class="flex-1 min-w-0 flex items-center gap-2 justify-end">
-                            ${!g1Vince ? '<span class="shrink-0 leading-none">👑</span>' : ''}
-                            <a href="player.html?name=${encodeURIComponent(m.p2)}" class="font-semibold truncate text-right ${!g1Vince ? 'text-slate-900' : 'text-slate-400'}">${m.p2}</a>
-                            
-                        </div>
-                        <div class="shrink-0 flex items-center gap-0.5 pl-2 border-l border-slate-100">
-                            <button data-p1="${m.p1.replace(/"/g, '&quot;')}" data-p2="${m.p2.replace(/"/g, '&quot;')}" onclick="openMatchModal(this.dataset.p1,this.dataset.p2)" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors text-base" title="Rivincita">⚡</button>
-                            ${isAdmin() ? `
-                            <button data-matchid="${m.id}" data-p1="${m.p1.replace(/"/g, '&quot;')}" data-p2="${m.p2.replace(/"/g, '&quot;')}" data-s1="${m.s1}" data-s2="${m.s2}" onclick="openEditModal(this)" class="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors text-base" title="Modifica risultato">✏️</button>
-                            <button onclick="deleteMatch(this,${m.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors text-base" title="Elimina partita">🗑️</button>
-                            ` : ''}
+                        <div class="divide-y divide-slate-100">
+                            ${ms.map(m => renderMatchRow(m)).join('')}
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function renderMatchRow(m) {
+            const g1Vince = m.s1 > m.s2;
+            return `
+                <div class="p-3 sm:p-5 flex items-center gap-2 hover:bg-slate-50/50 transition-colors">
+                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                        ${renderAvatar(_avatars.get(m.p1) || '', m.p1, 'w-8 h-8')}
+                        <a href="player.html?name=${encodeURIComponent(m.p1)}" class="font-semibold truncate ${g1Vince ? 'text-slate-900' : 'text-slate-400'}">${m.p1}</a>
+                        ${g1Vince ? '<span class="shrink-0 leading-none">👑</span>' : ''}
+                    </div>
+                    <div class="shrink-0 px-1">
+                        <div class="bg-slate-100 py-1 px-2.5 rounded-lg font-mono font-bold text-slate-700 text-sm whitespace-nowrap shadow-inner">${m.s1} – ${m.s2}</div>
+                    </div>
+                    <div class="flex-1 min-w-0 flex items-center gap-2 justify-end">
+                        ${!g1Vince ? '<span class="shrink-0 leading-none">👑</span>' : ''}
+                        <a href="player.html?name=${encodeURIComponent(m.p2)}" class="font-semibold truncate text-right ${!g1Vince ? 'text-slate-900' : 'text-slate-400'}">${m.p2}</a>
+                        ${renderAvatar(_avatars.get(m.p2) || '', m.p2, 'w-8 h-8')}
+                    </div>
+                    <div class="shrink-0 flex items-center gap-0.5 pl-2 border-l border-slate-100">
+                        <button data-p1="${m.p1.replace(/"/g, '&quot;')}" data-p2="${m.p2.replace(/"/g, '&quot;')}" onclick="openMatchModal(this.dataset.p1,this.dataset.p2)" class="p-1.5 rounded-lg text-slate-400 hover:text-[#A5D62C] hover:bg-slate-100 transition-colors text-base" title="Rivincita">⚡</button>
+                        ${isAdmin() ? `
+                        <button data-matchid="${m.id}" data-p1="${m.p1.replace(/"/g, '&quot;')}" data-p2="${m.p2.replace(/"/g, '&quot;')}" data-s1="${m.s1}" data-s2="${m.s2}" onclick="openEditModal(this)" class="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors text-base" title="Modifica risultato">✏️</button>
+                        <button onclick="deleteMatch(this,${m.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors text-base" title="Elimina partita">🗑️</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
         }
 
         async function deleteMatch(btn, matchId) {

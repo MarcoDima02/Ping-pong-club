@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed – Maggio 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; background: #f8fafc; color: #1e293b; }
+        h1 { font-size: 22px; font-weight: 800; color: #0D2745; }
+        .subtitle { color: #64748b; margin: 4px 0 28px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: background .15s; }
+        .btn-green  { background: #A5D62C; color: #0D2745; }
+        .btn-green:hover  { background: #8FBB1E; }
+        .btn-red    { background: #fee2e2; color: #b91c1c; }
+        .btn-red:hover    { background: #fecaca; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        #output {
+            margin-top: 24px; background: #0f172a; color: #a5d62c;
+            border-radius: 12px; padding: 16px 20px;
+            font-family: monospace; font-size: 13px; line-height: 1.7;
+            white-space: pre-wrap; min-height: 80px;
+        }
+        .note { margin-top: 20px; padding: 12px 16px; background: #fef9c3; border-radius: 8px; font-size: 13px; color: #854d0e; }
+    </style>
+</head>
+<body>
+    <h1>🏓 Seed – Maggio 2026</h1>
+    <p class="subtitle">Inserisce partite di prova per testare il Report Mensile</p>
+
+    <div class="actions">
+        <button class="btn btn-green" id="btnSeed">▶ Inserisci dati maggio</button>
+        <button class="btn btn-red"   id="btnDelete">🗑 Elimina dati maggio</button>
+    </div>
+
+    <pre id="output">In attesa…</pre>
+
+    <p class="note">⚠️ Questo file è solo per test. Non distribuire in produzione.</p>
+
+    <script>
+        const SUPABASE_URL     = "https://ehczcxhebvzhsisehogt.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_uzyAkSCuJsijBI6VRiwmqg_qWatb1PF";
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const out = document.getElementById('output');
+        const log = msg => { out.textContent += msg + '\n'; };
+        const clear = () => { out.textContent = ''; };
+
+        // ── generate matches ─────────────────────────────────────
+        function generateMatches(names) {
+            const n = Math.min(names.length, 6);
+            const matches = [];
+
+            // Win probability for each player slot (best → weakest)
+            const winProb = [0.80, 0.65, 0.52, 0.40, 0.35, 0.30];
+
+            // Score pools: [winner_score, loser_score]
+            const bigWin   = [[11,0],[11,2],[11,3],[11,4],[11,5]];
+            const closeWin = [[11,7],[11,8],[11,9]];
+
+            function pickScore(dominant) {
+                const pool = dominant ? bigWin : closeWin;
+                return pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            function rndDay()  { return 1  + Math.floor(Math.random() * 28); }
+            function rndHour() { return 9  + Math.floor(Math.random() * 9); }
+            function rndMin()  { return Math.floor(Math.random() * 60); }
+            function pad(n)    { return String(n).padStart(2, '0'); }
+            function ts(d, h, m) { return `2026-05-${pad(d)}T${pad(h)}:${pad(m)}:00`; }
+
+            // Round-robin, with extra matches for top players so ≥1 reaches 10+
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    // Top pairs play more often
+                    const rounds = (i + j <= 2) ? 5 : (i + j <= 4) ? 4 : 3;
+                    for (let r = 0; r < rounds; r++) {
+                        const p1Wins = Math.random() < winProb[i];
+                        const dominant = Math.random() < 0.4; // 40% chance of a dominant win
+                        const [ws, ls] = pickScore(dominant);
+                        const s1 = p1Wins ? ws : ls;
+                        const s2 = p1Wins ? ls : ws;
+                        matches.push({
+                            p1: names[i], p2: names[j],
+                            s1, s2,
+                            created_at: ts(rndDay(), rndHour(), rndMin())
+                        });
+                    }
+                }
+            }
+
+            return matches;
+        }
+
+        // ── SEED ─────────────────────────────────────────────────
+        document.getElementById('btnSeed').onclick = async function() {
+            this.disabled = true;
+            clear();
+            log('🔍 Recupero giocatori dal DB…');
+
+            const { data: players, error: pErr } = await client.from('players').select('name');
+            if (pErr || !players) { log('❌ Errore: ' + (pErr?.message || 'nessun dato')); this.disabled = false; return; }
+            if (players.length < 2) { log('❌ Servono almeno 2 giocatori nel DB per generare partite.'); this.disabled = false; return; }
+
+            const names = players.map(p => p.name);
+            log(`✓ ${names.length} giocatori trovati: ${names.join(', ')}`);
+
+            const matches = generateMatches(names);
+            log(`→ Generati ${matches.length} match per maggio 2026`);
+
+            // Preview
+            const preview = matches.slice(0, 5);
+            preview.forEach(m => log(`   ${m.p1} ${m.s1}–${m.s2} ${m.p2}  (${m.created_at.slice(0,10)})`));
+            if (matches.length > 5) log(`   … e altri ${matches.length - 5}`);
+
+            log('⬆ Inserimento in corso…');
+            const { error } = await client.from('matches').insert(matches);
+            if (error) { log('❌ Errore inserimento: ' + error.message); this.disabled = false; return; }
+
+            // Summary per player
+            const summary = {};
+            matches.forEach(m => {
+                if (!summary[m.p1]) summary[m.p1] = { v:0, s:0 };
+                if (!summary[m.p2]) summary[m.p2] = { v:0, s:0 };
+                m.s1 > m.s2 ? summary[m.p1].v++ : summary[m.p1].s++;
+                m.s1 > m.s2 ? summary[m.p2].s++ : summary[m.p2].v++;
+            });
+
+            log('\n✅ Inseriti con successo!\n');
+            log('📊 Riepilogo per giocatore:');
+            Object.entries(summary)
+                .sort((a,b) => b[1].v - a[1].v)
+                .forEach(([name, s]) => log(`   ${name}: ${s.v}V – ${s.s}S (${s.v+s.s} partite)`));
+
+            log('\n→ Apri monthly.html e naviga a Maggio 2026 per vedere il report.');
+            this.disabled = false;
+        };
+
+        // ── DELETE ───────────────────────────────────────────────
+        document.getElementById('btnDelete').onclick = async function() {
+            if (!confirm('Eliminare tutte le partite di maggio 2026?')) return;
+            this.disabled = true;
+            clear();
+            log('🗑 Eliminazione partite maggio 2026…');
+            const { error, count } = await client
+                .from('matches')
+                .delete()
+                .gte('created_at', '2026-05-01T00:00:00')
+                .lt('created_at', '2026-06-01T00:00:00');
+            if (error) { log('❌ ' + error.message); } else { log('✅ Dati maggio eliminati.'); }
+            this.disabled = false;
+        };
+    </script>
+</body>
+</html>

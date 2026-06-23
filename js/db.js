@@ -227,6 +227,17 @@ window.uploadAvatarFile = async function(playerName, file) {
 		.opc-modal-save:hover { background: #8FBB1E; }
 		.opc-modal-save:disabled { background: #94a3b8; cursor: not-allowed; }
 
+		/* Player modal inputs */
+		.opc-modal-input {
+			width: 100%; padding: 11px 14px;
+			border: 1.5px solid #e2e8f0; border-radius: 10px;
+			font-size: 14px; background: #f8fafc; color: #0f172a;
+			outline: none; transition: border-color 0.15s;
+			box-sizing: border-box;
+		}
+		.opc-modal-input:focus { border-color: #A5D62C; background: #fff; }
+		.opc-modal-input::placeholder { color: #94a3b8; }
+
 		/* Toast */
 		.opc-toast {
 			position: fixed; bottom: 84px; left: 50%;
@@ -431,4 +442,81 @@ window.saveModalMatch = async function () {
 	if (typeof updateUI === 'function') updateUI();
 	if (typeof loadHistory === 'function') loadHistory();
 	if (typeof loadPlayerProfile === 'function') loadPlayerProfile();
+};
+
+// ── PLAYER MODAL ─────────────────────────────────────────────
+var _newPlayerAvatarFile = null;
+
+window.openPlayerModal = function () {
+	var overlay = document.getElementById('_opcPOverlay');
+	var modal   = document.getElementById('_opcPModal');
+	if (!overlay || !modal) return;
+
+	_newPlayerAvatarFile = null;
+	var nameEl    = document.getElementById('_pModalName');
+	var urlEl     = document.getElementById('_pModalUrl');
+	var fileEl    = document.getElementById('_pModalFile');
+	var preview   = document.getElementById('_pModalAvatarPreview');
+	if (nameEl)  nameEl.value  = '';
+	if (urlEl)   urlEl.value   = '';
+	if (fileEl)  fileEl.value  = '';
+	if (preview) preview.innerHTML = '👤';
+
+	if (fileEl) {
+		fileEl.onchange = function (e) {
+			var file = e.target.files && e.target.files[0];
+			if (!file) return;
+			_newPlayerAvatarFile = file;
+			var objUrl = URL.createObjectURL(file);
+			if (preview) preview.innerHTML = '<img src="' + objUrl + '" class="w-20 h-20 rounded-full object-cover">';
+		};
+	}
+
+	overlay.classList.add('_open');
+	modal.classList.add('_open');
+	document.body.style.overflow = 'hidden';
+	if (nameEl) setTimeout(function () { nameEl.focus(); }, 350);
+};
+
+window.closePlayerModal = function () {
+	var overlay = document.getElementById('_opcPOverlay');
+	var modal   = document.getElementById('_opcPModal');
+	if (overlay) overlay.classList.remove('_open');
+	if (modal)   modal.classList.remove('_open');
+	document.body.style.overflow = '';
+};
+
+window.saveNewPlayer = async function () {
+	var name = ((document.getElementById('_pModalName') || {}).value || '').trim();
+	if (!name) { showToast('Inserisci un nome', 'error'); return; }
+
+	var urlVal   = ((document.getElementById('_pModalUrl') || {}).value || '').trim();
+	var finalUrl = urlVal || null;
+
+	if (_newPlayerAvatarFile) {
+		try {
+			finalUrl = await uploadAvatarFile(name, _newPlayerAvatarFile);
+		} catch (e) {
+			showToast('Errore upload foto', 'error');
+			return;
+		}
+	}
+
+	var saveBtn = document.querySelector('#_opcPModal .opc-modal-save');
+	if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvataggio...'; }
+
+	var res = await _supabase.from('players').insert([{ name: name, avatar_url: finalUrl }]);
+
+	if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Aggiungi Giocatore'; }
+
+	if (res.error) {
+		showToast('Errore: ' + res.error.message, 'error');
+		return;
+	}
+
+	closePlayerModal();
+	showToast('Giocatore aggiunto! 👤');
+	_newPlayerAvatarFile = null;
+
+	if (typeof updateUI === 'function') updateUI();
 };

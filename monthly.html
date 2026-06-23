@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OfficePong – Report Mensile</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body data-page="report" class="bg-slate-50 min-h-screen pb-24 antialiased">
+
+    <header class="bg-[#0D2745] border-b border-[#1a3a5c] sticky top-0 z-40">
+        <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-0.5">
+                <span class="text-[#A5D62C] font-extrabold tracking-tight text-xl">Office</span><span class="text-white font-extrabold tracking-tight text-xl">Pong</span>
+            </a>
+            <span class="text-slate-400 text-sm font-semibold">Report Mensile</span>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto p-4 md:p-8 space-y-5">
+
+        <!-- Month navigator -->
+        <div class="flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-xs px-4 py-3">
+            <button id="btnPrevMonth" onclick="changeMonth(-1)"
+                    class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="text-center">
+                <p id="monthTitle" class="text-lg font-bold text-slate-900">—</p>
+                <p id="monthMatchCount" class="text-xs text-slate-400 mt-0.5">Caricamento…</p>
+            </div>
+            <button id="btnNextMonth" onclick="changeMonth(1)"
+                    class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        </div>
+
+        <div id="podiumSection"></div>
+        <div id="rankingList"></div>
+        <div id="statsSection"></div>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="opc-bn">
+        <a href="index.html" class="opc-bn-tab" data-page="classifica">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Classifica</span>
+        </a>
+        <a href="history.html" class="opc-bn-tab" data-page="storico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Storico</span>
+        </a>
+        <button class="opc-bn-fab" onclick="openMatchModal()" aria-label="Nuova partita">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <a href="monthly.html" class="opc-bn-tab" data-page="report">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0012 0V2z"/></svg>
+            <span>Report</span>
+        </a>
+        <button class="opc-bn-tab" onclick="openPlayerModal()" aria-label="Nuovo giocatore">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span>Giocatore</span>
+        </button>
+    </nav>
+
+    <!-- Player Modal -->
+    <div class="opc-overlay" id="_opcPOverlay" onclick="closePlayerModal()"></div>
+    <div class="opc-modal" id="_opcPModal" role="dialog" aria-modal="true">
+        <div class="opc-modal-handle"></div>
+        <div class="opc-modal-head">
+            <h2 class="opc-modal-title">👤 Nuovo Giocatore</h2>
+            <button class="opc-modal-close" onclick="closePlayerModal()" aria-label="Chiudi">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="opc-modal-body">
+            <div class="flex flex-col items-center gap-1">
+                <div class="relative cursor-pointer group" onclick="document.getElementById('_pModalFile').click()" title="Scegli foto">
+                    <div id="_pModalAvatarPreview" class="w-20 h-20 rounded-full bg-slate-100 border-2 border-dashed border-slate-200 flex items-center justify-center text-3xl overflow-hidden">👤</div>
+                    <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/35 transition-all flex items-center justify-center pointer-events-none">
+                        <svg class="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400">Tocca per aggiungere foto</p>
+            </div>
+            <input type="file" id="_pModalFile" accept="image/*" class="hidden">
+            <input type="text"  id="_pModalName" placeholder="Nome giocatore"          class="opc-modal-input" autocomplete="off">
+            <input type="url"   id="_pModalUrl"  placeholder="oppure incolla URL avatar…" class="opc-modal-input">
+            <button class="opc-modal-save" onclick="saveNewPlayer()">Aggiungi Giocatore</button>
+        </div>
+    </div>
+
+    <!-- Match Modal -->
+    <div class="opc-overlay" id="_opcOverlay" onclick="closeMatchModal()"></div>
+    <div class="opc-modal" id="_opcModal" role="dialog" aria-modal="true" aria-labelledby="_opcModalTitle">
+        <div class="opc-modal-handle"></div>
+        <div class="opc-modal-head">
+            <h2 class="opc-modal-title" id="_opcModalTitle">🏓 Nuova Partita</h2>
+            <button class="opc-modal-close" onclick="closeMatchModal()" aria-label="Chiudi">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="opc-modal-body">
+            <div class="opc-modal-selects">
+                <div class="opc-modal-field">
+                    <label for="_modalP1">Giocatore 1</label>
+                    <select id="_modalP1"><option value="" disabled selected>Caricamento...</option></select>
+                </div>
+                <div class="opc-modal-field">
+                    <label for="_modalP2">Giocatore 2</label>
+                    <select id="_modalP2"><option value="" disabled selected>Caricamento...</option></select>
+                </div>
+            </div>
+            <div class="opc-scores">
+                <div class="opc-score-block">
+                    <div class="opc-score-ctrl">
+                        <button class="opc-score-btn opc-score-minus" onclick="changeScore(1,-1)" aria-label="Diminuisci">−</button>
+                        <input type="number" class="opc-score-num" id="_modalS1" value="0" min="0" inputmode="numeric" onfocus="this.select()" aria-label="Punteggio giocatore 1">
+                        <button class="opc-score-btn opc-score-plus" onclick="changeScore(1,1)" aria-label="Aumenta">+</button>
+                    </div>
+                </div>
+                <div class="opc-score-sep">vs</div>
+                <div class="opc-score-block">
+                    <div class="opc-score-ctrl">
+                        <button class="opc-score-btn opc-score-minus" onclick="changeScore(2,-1)" aria-label="Diminuisci">−</button>
+                        <input type="number" class="opc-score-num" id="_modalS2" value="0" min="0" inputmode="numeric" onfocus="this.select()" aria-label="Punteggio giocatore 2">
+                        <button class="opc-score-btn opc-score-plus" onclick="changeScore(2,1)" aria-label="Aumenta">+</button>
+                    </div>
+                </div>
+            </div>
+            <button class="opc-modal-save" id="_modalSaveBtn" onclick="saveModalMatch()">Salva Partita</button>
+        </div>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        const MONTH_NAMES = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                             'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+        let _year, _month;
+
+        function initTargetMonth() {
+            const now = new Date();
+            _month = now.getMonth() - 1;
+            _year  = now.getFullYear();
+            if (_month < 0) { _month = 11; _year--; }
+        }
+
+        function maxAllowedMonth() {
+            const now = new Date();
+            return { m: now.getMonth(), y: now.getFullYear() };
+        }
+
+        function changeMonth(delta) {
+            let m = _month + delta, y = _year;
+            if (m > 11) { m = 0; y++; }
+            if (m < 0)  { m = 11; y--; }
+            const max = maxAllowedMonth();
+            if (y > max.y || (y === max.y && m > max.m)) return;
+            _month = m; _year = y;
+            loadMonthlyReport();
+        }
+
+        function updateNavButtons() {
+            const max = maxAllowedMonth();
+            let nextM = _month + 1, nextY = _year;
+            if (nextM > 11) { nextM = 0; nextY++; }
+            const atMax = nextY > max.y || (nextY === max.y && nextM > max.m);
+            document.getElementById('btnNextMonth').disabled = atMax;
+        }
+
+        async function loadMonthlyReport() {
+            document.getElementById('monthTitle').textContent = `${MONTH_NAMES[_month]} ${_year}`;
+            document.getElementById('monthMatchCount').textContent = 'Caricamento…';
+            document.getElementById('podiumSection').innerHTML = '';
+            document.getElementById('rankingList').innerHTML  = '';
+            document.getElementById('statsSection').innerHTML = '';
+            updateNavButtons();
+
+            // Current month → show "collecting" animation, no recap yet
+            const now = new Date();
+            if (_year === now.getFullYear() && _month === now.getMonth()) {
+                renderCollecting();
+                return;
+            }
+
+            const [matchRes, playerRes] = await Promise.all([
+                _supabase.from('matches').select('*').order('id', { ascending: true }),
+                _supabase.from('players').select('name, avatar_url')
+            ]);
+
+            const avatars = new Map((playerRes.data || []).map(p => [p.name, p.avatar_url || '']));
+
+            const monthMatches = (matchRes.data || []).filter(m => {
+                const d = new Date(m.created_at);
+                return d.getFullYear() === _year && d.getMonth() === _month;
+            });
+
+            document.getElementById('monthMatchCount').textContent = `${monthMatches.length} partite disputate`;
+
+            if (monthMatches.length === 0) {
+                document.getElementById('podiumSection').innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center">
+                        <p class="text-4xl mb-3">🏓</p>
+                        <p class="font-semibold text-slate-700">Nessuna partita registrata</p>
+                        <p class="text-sm text-slate-400 mt-1">a ${MONTH_NAMES[_month]}</p>
+                    </div>`;
+                return;
+            }
+
+            // ── per-player stats ─────────────────────────────────
+            const stats = {};
+            monthMatches.forEach(m => {
+                [m.p1, m.p2].forEach(n => { if (!stats[n]) stats[n] = { v:0, s:0, pf:0, ps:0 }; });
+                const p1W = m.s1 > m.s2;
+                if (p1W) { stats[m.p1].v++; stats[m.p2].s++; }
+                else     { stats[m.p2].v++; stats[m.p1].s++; }
+                stats[m.p1].pf += m.s1; stats[m.p1].ps += m.s2;
+                stats[m.p2].pf += m.s2; stats[m.p2].ps += m.s1;
+            });
+
+            const ranking = Object.entries(stats)
+                .map(([name, s]) => ({ name, ...s, total: s.v + s.s, rate: s.v / (s.v + s.s) }))
+                .sort((a, b) => b.v - a.v || b.rate - a.rate);
+
+            renderPodium(ranking, avatars);
+            renderRankingList(ranking.slice(3), avatars);
+            renderStats(monthMatches, ranking, avatars);
+        }
+
+        // ── PING PONG CANVAS ANIMATION ────────────────────────────
+        let _pongCleanup = null;
+
+        function startPongAnimation(canvas) {
+            if (!canvas) return function() {};
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width, H = canvas.height;
+
+            const FLOOR = H * 0.88;
+            const TT    = H * 0.57;       // table top y
+            const TH    = 10;
+            const TX1   = W * 0.11;
+            const TX2   = W * 0.89;
+            const NETX  = W / 2;
+            const P1    = { x: W * 0.05, y: TT + 2 };
+            const P2    = { x: W * 0.95, y: TT + 2 };
+            const CYCLE = 1300;
+            const C1 = '#A5D62C', C2 = '#0891B2';
+
+            let t0 = null, raf = null;
+            const ease  = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+            const remap = (t, a, b) => Math.max(0, Math.min(1, (t-a)/(b-a)));
+
+            // angle: 0=right, π/2=down, π=left (canvas y-down coords)
+            // P1 backswing=-1.0 (upper-right), hit≈0.15 (right+slight down)
+            // P2 mirrors: backswing=π+1.0 (upper-left), hit≈π-0.15
+            function padAngle(p, dir, ph) {
+                if (p === 1) {
+                    if (dir === 0) {
+                        if (ph < 0.15) return 0.15 + ease(remap(ph, 0, 0.15)) * 0.30;
+                        if (ph < 0.65) return 0.45 - ease(remap(ph, 0.15, 0.65)) * 1.45;
+                        return -1.0;
+                    } else {
+                        if (ph < 0.70) return -1.0;
+                        return -1.0 + ease(remap(ph, 0.70, 1.0)) * 1.15;
+                    }
+                } else {
+                    const HIT = Math.PI - 0.15, FT = Math.PI - 0.45, BS = Math.PI + 1.0;
+                    if (dir === 1) {
+                        if (ph < 0.15) return HIT - ease(remap(ph, 0, 0.15)) * 0.30;
+                        if (ph < 0.65) return FT  + ease(remap(ph, 0.15, 0.65)) * 1.45;
+                        return BS;
+                    } else {
+                        if (ph < 0.70) return BS;
+                        return BS - ease(remap(ph, 0.70, 1.0)) * 1.15;
+                    }
+                }
+            }
+
+            function drawPaddle(px, py, angle, color) {
+                const HLEN = 16, BLEN = 14, BW = 11, BH = 15;
+                const htx = px + Math.cos(angle) * HLEN;
+                const hty = py + Math.sin(angle) * HLEN;
+                const bcx = htx + Math.cos(angle) * BLEN;
+                const bcy = hty + Math.sin(angle) * BLEN;
+
+                ctx.save();
+
+                // subtle forearm hint at canvas edge
+                ctx.strokeStyle = 'rgba(110,80,55,0.22)';
+                ctx.lineWidth = 9;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(px < W/2 ? 0 : W, py + 22);
+                ctx.lineTo(px, py);
+                ctx.stroke();
+
+                // handle
+                ctx.strokeStyle = '#6b3a12';
+                ctx.lineWidth = 7;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(htx, hty);
+                ctx.stroke();
+
+                // blade shadow
+                ctx.save();
+                ctx.translate(bcx + 2, bcy + 3);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, BW + 1, BH + 1, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // blade face
+                ctx.save();
+                ctx.translate(bcx, bcy);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, BW, BH, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // rim
+                ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                // glare
+                ctx.fillStyle = 'rgba(255,255,255,0.30)';
+                ctx.beginPath();
+                ctx.ellipse(-BW * 0.22, -BH * 0.22, BW * 0.36, BH * 0.26, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.restore();
+            }
+
+            function frame(ts) {
+                if (!t0) t0 = ts;
+                const elapsed = (ts - t0) % (CYCLE * 2);
+                const dir = elapsed < CYCLE ? 0 : 1;
+                const ph  = (elapsed % CYCLE) / CYCLE;
+
+                // background
+                ctx.fillStyle = '#f0f6ff';
+                ctx.fillRect(0, 0, W, H);
+
+                // floor stripe
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(0, FLOOR, W, H - FLOOR);
+                ctx.fillStyle = '#c8d5e5';
+                ctx.fillRect(0, FLOOR, W, 1.5);
+
+                // table legs
+                ctx.fillStyle = '#1e3a55';
+                for (const lx of [TX1 + 18, TX2 - 18]) {
+                    ctx.fillRect(lx - 2.5, TT + TH, 5, FLOOR - TT - TH);
+                }
+
+                // table shadow
+                ctx.save();
+                ctx.shadowColor = 'rgba(0,0,0,0.22)';
+                ctx.shadowBlur  = 12;
+                ctx.shadowOffsetY = 6;
+                ctx.fillStyle = '#172b4d';
+                ctx.beginPath();
+                ctx.roundRect(TX1, TT, TX2 - TX1, TH, 2);
+                ctx.fill();
+                ctx.restore();
+
+                // table surface halves
+                ctx.fillStyle = '#1d4ed8';
+                ctx.beginPath();
+                ctx.roundRect(TX1, TT, (TX2-TX1) * 0.5, TH, [2,0,0,2]);
+                ctx.fill();
+                ctx.fillStyle = '#2563eb';
+                ctx.beginPath();
+                ctx.roundRect(TX1 + (TX2-TX1) * 0.5, TT, (TX2-TX1) * 0.5, TH, [0,2,2,0]);
+                ctx.fill();
+
+                // highlight + bottom edge
+                ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                ctx.fillRect(TX1, TT, TX2-TX1, 2);
+                ctx.fillStyle = '#12243e';
+                ctx.beginPath();
+                ctx.roundRect(TX1, TT + TH, TX2-TX1, 5, [0,0,2,2]);
+                ctx.fill();
+
+                // centre line
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillRect(NETX - 0.5, TT + 1, 1, TH - 2);
+
+                // net
+                ctx.save();
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([2.5, 2]);
+                ctx.beginPath();
+                ctx.moveTo(NETX, TT - 18);
+                ctx.lineTo(NETX, TT);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(NETX - 6, TT - 18);
+                ctx.lineTo(NETX + 6, TT - 18);
+                ctx.stroke();
+                ctx.restore();
+
+                // ball — two-arc trajectory with table bounce
+                const fromX = dir === 0 ? TX1 + 13 : TX2 - 13;
+                const toX   = dir === 0 ? TX2 - 13 : TX1 + 13;
+                // bounce lands on the receiver's half, about 55% past the net
+                const bncX  = dir === 0
+                    ? NETX + (TX2 - NETX) * 0.52
+                    : NETX - (NETX - TX1) * 0.52;
+                const BPH   = 0.54;           // phase at which ball hits the table
+                const PAD_Y = TT - 5;         // paddle contact height
+                const TBL_Y = TT + 1;         // table surface (bounce y)
+
+                let bx, by;
+                if (ph < BPH) {
+                    const t = ph / BPH;
+                    bx = fromX + (bncX - fromX) * t;
+                    // arc from paddle height down to table, cresting above the net
+                    by = PAD_Y + (TBL_Y - PAD_Y) * t - Math.sin(t * Math.PI) * 44;
+                } else {
+                    const t = (ph - BPH) / (1 - BPH);
+                    bx = bncX + (toX - bncX) * t;
+                    // shorter arc from table up to receiving paddle
+                    by = TBL_Y + (PAD_Y - TBL_Y) * t - Math.sin(t * Math.PI) * 28;
+                }
+
+                // squish ball on bounce
+                const sq   = Math.max(0, 1 - Math.abs(ph - BPH) / 0.05);
+                const bRX  = 7 + sq * 3.5;
+                const bRY  = 7 - sq * 2.5;
+
+                // bounce ripple on table surface
+                if (ph > BPH - 0.04 && ph < BPH + 0.18) {
+                    const rT = Math.max(0, (ph - (BPH - 0.01)) / 0.19);
+                    ctx.beginPath();
+                    ctx.arc(bncX, TT, rT * 18, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255,255,255,${0.55 * (1 - rT)})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+
+                // shadow under ball (shrinks with height)
+                const distH = Math.max(0, TT - by);
+                const sf    = Math.max(0, 1 - distH / 55);
+                ctx.beginPath();
+                ctx.ellipse(bx, TT - 1, Math.max(1, 7*sf), Math.max(0.3, 2*sf), 0, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(0,0,0,${0.15*sf})`;
+                ctx.fill();
+
+                // ball
+                const bGr = ctx.createRadialGradient(bx-2, by-2, 1, bx, by, bRX);
+                bGr.addColorStop(0, '#fff');
+                bGr.addColorStop(0.6, '#f0f4f8');
+                bGr.addColorStop(1, '#c8d5e5');
+                ctx.beginPath();
+                ctx.ellipse(bx, by, bRX, bRY, 0, 0, Math.PI*2);
+                ctx.fillStyle = bGr;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // paddles
+                drawPaddle(P1.x, P1.y, padAngle(1, dir, ph), C1);
+                drawPaddle(P2.x, P2.y, padAngle(2, dir, ph), C2);
+
+                raf = requestAnimationFrame(frame);
+            }
+
+            raf = requestAnimationFrame(frame);
+            return function() { cancelAnimationFrame(raf); };
+        }
+
+        // ── RACCOLTA DATI (mese in corso) ─────────────────────────
+        function renderCollecting() {
+            if (_pongCleanup) { _pongCleanup(); _pongCleanup = null; }
+
+            const now  = new Date();
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const dayOfMonth  = now.getDate();
+            const progress    = Math.round((dayOfMonth / daysInMonth) * 100);
+            const nextMonthName = MONTH_NAMES[(_month + 1) % 12];
+            const nextYear    = _month === 11 ? _year + 1 : _year;
+
+            document.getElementById('monthMatchCount').textContent = `${dayOfMonth} giorni su ${daysInMonth} raccolti`;
+
+            document.getElementById('podiumSection').innerHTML = `
+                <style>
+                    @keyframes opc-dot { 0%,80%,100%{opacity:.25;transform:translateY(0)} 40%{opacity:1;transform:translateY(-4px)} }
+                    @keyframes opc-bar-pulse { 0%,100%{opacity:1} 50%{opacity:.65} }
+                    .opc-dot1{animation:opc-dot 1.5s ease-in-out infinite 0s;display:inline-block}
+                    .opc-dot2{animation:opc-dot 1.5s ease-in-out infinite .25s;display:inline-block}
+                    .opc-dot3{animation:opc-dot 1.5s ease-in-out infinite .5s;display:inline-block}
+                </style>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="h-1 w-full" style="background:linear-gradient(90deg,#0D2745,#A5D62C,#0891B2)"></div>
+                    <canvas id="opcPongCanvas" width="340" height="170"
+                            style="width:100%;height:auto;display:block"></canvas>
+                    <div class="px-6 pt-2 pb-6 flex flex-col items-center text-center gap-4">
+                        <div>
+                            <h2 class="text-lg font-extrabold text-slate-800 flex items-center justify-center gap-0.5 flex-wrap">
+                                Stiamo raccogliendo i dati
+                                <span class="inline-flex ml-1" aria-hidden="true">
+                                    <span class="opc-dot1 font-black text-[#A5D62C]">.</span>
+                                    <span class="opc-dot2 font-black text-[#A5D62C]">.</span>
+                                    <span class="opc-dot3 font-black text-[#A5D62C]">.</span>
+                                </span>
+                            </h2>
+                            <p class="text-sm text-slate-400 mt-1">
+                                Il recap di <strong class="text-slate-600">${MONTH_NAMES[_month]} ${_year}</strong>
+                                sarà disponibile il 1° ${nextMonthName} ${nextYear}
+                            </p>
+                        </div>
+                        <div class="w-full max-w-xs">
+                            <div class="flex justify-between text-[11px] font-semibold text-slate-400 mb-1.5">
+                                <span>1 ${MONTH_NAMES[_month]}</span>
+                                <span class="text-[#A5D62C] font-bold">${progress}%</span>
+                                <span>${daysInMonth} ${MONTH_NAMES[_month]}</span>
+                            </div>
+                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full"
+                                     style="width:${progress}%;background:linear-gradient(90deg,#A5D62C,#8FBB1E);animation:opc-bar-pulse 2.4s ease-in-out infinite"></div>
+                            </div>
+                            <p class="text-[11px] text-slate-400 text-center mt-1.5">Giorno ${dayOfMonth} di ${daysInMonth}</p>
+                        </div>
+                    </div>
+                </div>`;
+
+            const canvas = document.getElementById('opcPongCanvas');
+            _pongCleanup = startPongAnimation(canvas);
+        }
+
+        // ── PODIO ──────────────────────────────────────────────────
+        function renderPodium(ranking, avatars) {
+            // display order: 2nd | 1st | 3rd
+            const order    = [ranking[1]||null, ranking[0]||null, ranking[2]||null];
+            const medals   = ['🥈', '🥇', '🥉'];
+            const positions= ['2°', '1°', '3°'];
+            const platH    = [64, 88, 48];          // px
+            const platBg   = ['#1e3a55', '#A5D62C', '#1a3250'];
+            const platText = ['#94a3b8', '#0D2745', '#94a3b8'];
+            const ringCol  = ['#94a3b8', '#fbbf24', '#f97316'];
+            const avSize   = ['w-16 h-16', 'w-20 h-20', 'w-14 h-14'];
+
+            const slots = order.map((p, i) => {
+                if (!p) return `<div class="flex-1"></div>`;
+                const winRate = p.total >= 10 ? ` · ${Math.round(p.rate * 100)}%` : '';
+                const av = renderAvatar(avatars.get(p.name)||'', p.name, avSize[i]);
+                return `
+                    <div class="flex-1 flex flex-col items-center min-w-0">
+                        <div style="border-radius:50%;box-shadow:0 0 0 3px ${ringCol[i]},0 0 0 6px #0D2745">${av}</div>
+                        <span class="text-2xl mt-2">${medals[i]}</span>
+                        <span class="text-white font-bold text-xs text-center leading-tight mt-1 px-1 w-full truncate">${p.name}</span>
+                        <span class="text-slate-400 text-[11px] mt-0.5">${p.v}V–${p.s}S${winRate}</span>
+                        <div style="height:${platH[i]}px;background:${platBg[i]}" class="w-full rounded-t-xl flex items-center justify-center mt-3">
+                            <span style="color:${platText[i]}" class="font-black text-2xl">${positions[i]}</span>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('podiumSection').innerHTML = `
+                <div class="bg-[#0D2745] rounded-2xl px-5 pt-6 overflow-hidden">
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 text-center mb-5">Classifica del Mese</p>
+                    <div class="flex items-end gap-2">${slots}</div>
+                </div>`;
+        }
+
+        // ── LISTA 4°+ ──────────────────────────────────────────────
+        function renderRankingList(players, avatars) {
+            if (!players.length) return;
+            const rows = players.map((p, i) => {
+                const winRate = p.total >= 10 ? `${Math.round(p.rate * 100)}%` : '–';
+                const rateClass = p.total >= 10 ? 'bg-slate-100 text-slate-600' : 'bg-slate-50 text-slate-300';
+                return `
+                    <div class="px-4 py-3 flex items-center gap-3 hover:bg-slate-50/60 transition-colors">
+                        <span class="w-6 shrink-0 text-center text-sm font-bold text-slate-400">${i + 4}</span>
+                        ${renderAvatar(avatars.get(p.name)||'', p.name, 'w-8 h-8')}
+                        <span class="flex-1 font-semibold text-slate-800 truncate">${p.name}</span>
+                        <span class="font-mono text-sm font-bold text-slate-600 shrink-0">${p.v}V – ${p.s}S</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded-md min-w-[38px] text-center shrink-0 ${rateClass}">${winRate}</span>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('rankingList').innerHTML = `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Altri giocatori</span>
+                        <span class="text-[11px] text-slate-400">Win rate visibile da 10 partite</span>
+                    </div>
+                    <div class="divide-y divide-slate-100">${rows}</div>
+                </div>`;
+        }
+
+        // ── STATISTICHE ────────────────────────────────────────────
+        function renderStats(matches, ranking, avatars) {
+            // Più attivo
+            const mostActive = [...ranking].sort((a, b) => b.total - a.total)[0];
+
+            // Miglior win rate ≥ 10 partite
+            const topRate = ranking.filter(p => p.total >= 10).sort((a, b) => b.rate - a.rate)[0] || null;
+
+            // Vittoria più netta & partita più combattuta
+            let biggestWin = matches[0], closestMatch = matches[0];
+            matches.forEach(m => {
+                if (Math.abs(m.s1-m.s2) > Math.abs(biggestWin.s1-biggestWin.s2))    biggestWin   = m;
+                if (Math.abs(m.s1-m.s2) < Math.abs(closestMatch.s1-closestMatch.s2)) closestMatch = m;
+            });
+
+            const bigWinner = biggestWin.s1 > biggestWin.s2 ? biggestWin.p1 : biggestWin.p2;
+            const bigScore  = biggestWin.s1 > biggestWin.s2
+                ? `${biggestWin.s1}–${biggestWin.s2}` : `${biggestWin.s2}–${biggestWin.s1}`;
+            const bigLoser  = biggestWin.s1 > biggestWin.s2 ? biggestWin.p2 : biggestWin.p1;
+
+            const cards = [
+                {
+                    icon: '🎯', label: 'Più attivo',
+                    avatar: renderAvatar(avatars.get(mostActive.name)||'', mostActive.name, 'w-11 h-11'),
+                    main: mostActive.name,
+                    sub: `${mostActive.total} partite giocate`
+                },
+                ...(topRate ? [{
+                    icon: '📈', label: 'Miglior win rate',
+                    avatar: renderAvatar(avatars.get(topRate.name)||'', topRate.name, 'w-11 h-11'),
+                    main: topRate.name,
+                    sub: `${Math.round(topRate.rate * 100)}% su ${topRate.total} partite`
+                }] : []),
+                {
+                    icon: '💥', label: 'Vittoria più netta',
+                    avatar: null,
+                    main: `${bigWinner} batte ${bigLoser}`,
+                    sub: `Punteggio ${bigScore}`
+                },
+                {
+                    icon: '⚔️', label: 'Partita più combattuta',
+                    avatar: null,
+                    main: `${closestMatch.p1} vs ${closestMatch.p2}`,
+                    sub: `Punteggio ${closestMatch.s1}–${closestMatch.s2}`
+                },
+            ];
+
+            const cardHtml = cards.map(c => `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 flex items-center gap-4">
+                    ${c.avatar
+                        ? `<div class="shrink-0">${c.avatar}</div>`
+                        : `<div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">${c.icon}</div>`}
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${c.label}</p>
+                        <p class="font-bold text-slate-800 truncate mt-0.5">${c.main}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">${c.sub}</p>
+                    </div>
+                </div>`).join('');
+
+            document.getElementById('statsSection').innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${cardHtml}</div>`;
+        }
+
+        initTargetMonth();
+        initAuthGate().then(session => { if (session) loadMonthlyReport(); });
+    </script>
+</body>
+</html>
