@@ -3,6 +3,7 @@ const SUPABASE_URL = "https://ehczcxhebvzhsisehogt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_uzyAkSCuJsijBI6VRiwmqg_qWatb1PF";
 const OFFICEPONG_ACCESS_PASSWORD = 'gbs';
 const OFFICEPONG_ADMIN_PASSWORD = 'gbsadmin';
+const OFFICEPONG_CASA_PASSWORD = 'casa';
 const OFFICEPONG_ACCESS_KEY = 'officepong_access_granted';
 const OFFICEPONG_ROLE_KEY = 'officepong_role';
 
@@ -46,13 +47,20 @@ window.signOut = async function() {
 };
 
 window.verifyAppPassword = function(password) {
-	if (password === OFFICEPONG_ADMIN_PASSWORD) return 'admin';
+	if (password === OFFICEPONG_ADMIN_PASSWORD)  return 'admin';
 	if (password === OFFICEPONG_ACCESS_PASSWORD) return 'user';
+	if (password === OFFICEPONG_CASA_PASSWORD)   return 'casa';
 	return null;
 };
 
 window.isAdmin = function() {
-	return window.localStorage.getItem(OFFICEPONG_ROLE_KEY) === 'admin';
+	const role = window.localStorage.getItem(OFFICEPONG_ROLE_KEY);
+	return role === 'admin' || role === 'casa';
+};
+
+// Restituisce il contesto attivo: 'office' oppure 'casa'
+window.getContext = function() {
+	return window.localStorage.getItem(OFFICEPONG_ROLE_KEY) === 'casa' ? 'casa' : 'office';
 };
 
 window.buildAvatarFilePath = function(playerName, file) {
@@ -255,12 +263,23 @@ window.uploadAvatarFile = async function(playerName, file) {
 	document.head.appendChild(s);
 })();
 
-// ── ACTIVE TAB ───────────────────────────────────────────────
+// ── ACTIVE TAB + CONTEXT BADGE ──────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
 	const page = document.body.dataset.page;
 	if (!page) return;
 	const tab = document.querySelector('.opc-bn-tab[data-page="' + page + '"]');
 	if (tab) tab.classList.add('opc-bn-tab--active');
+
+	// Badge "Casa" nella navbar quando il contesto è casa
+	if (getContext() === 'casa') {
+		const logo = document.querySelector('nav a[href="index.html"]');
+		if (logo) {
+			const badge = document.createElement('span');
+			badge.textContent = '🏠 Casa';
+			badge.style.cssText = 'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#0891B2;color:#fff;letter-spacing:0.04em;margin-left:8px;vertical-align:middle';
+			logo.insertAdjacentElement('afterend', badge);
+		}
+	}
 });
 
 // ── TOAST ────────────────────────────────────────────────────
@@ -304,7 +323,7 @@ window.openMatchModal = async function (presetP1, presetP2) {
 	if (p1El) p1El.innerHTML = ph;
 	if (p2El) p2El.innerHTML = ph;
 
-	var res = await _supabase.from('players').select('name').order('name');
+	var res = await _supabase.from('players').select('name').eq('context', getContext()).order('name');
 	var players = (res.data || []);
 	var opts = players.map(function (p) {
 		return '<option value="' + p.name + '">' + p.name + '</option>';
@@ -424,7 +443,7 @@ window.saveModalMatch = async function () {
 	if (_editMatchId) {
 		result = await _supabase.from('matches').update({ s1: s1, s2: s2 }).eq('id', _editMatchId);
 	} else {
-		result = await _supabase.from('matches').insert([{ p1: p1, p2: p2, s1: s1, s2: s2 }]);
+		result = await _supabase.from('matches').insert([{ p1: p1, p2: p2, s1: s1, s2: s2, context: getContext() }]);
 	}
 
 	if (btn) { btn.disabled = false; btn.textContent = 'Salva Partita'; }
@@ -505,7 +524,7 @@ window.saveNewPlayer = async function () {
 	var saveBtn = document.querySelector('#_opcPModal .opc-modal-save');
 	if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvataggio...'; }
 
-	var res = await _supabase.from('players').insert([{ name: name, avatar_url: finalUrl }]);
+	var res = await _supabase.from('players').insert([{ name: name, avatar_url: finalUrl, context: getContext() }]);
 
 	if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Aggiungi Giocatore'; }
 

@@ -140,16 +140,30 @@
                              'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
         let _year, _month;
 
+        // Ora corrente in Italia (gestisce DST automaticamente)
+        function nowInRome() {
+            return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+        }
+
         function initTargetMonth() {
-            const now = new Date();
-            _month = now.getMonth() - 1;
-            _year  = now.getFullYear();
-            if (_month < 0) { _month = 11; _year--; }
+            const rome = nowInRome();
+            _month = rome.getMonth();
+            _year  = rome.getFullYear();
         }
 
         function maxAllowedMonth() {
-            const now = new Date();
-            return { m: now.getMonth(), y: now.getFullYear() };
+            const rome = nowInRome();
+            return { m: rome.getMonth(), y: rome.getFullYear() };
+        }
+
+        // Il report è pronto se: mese già passato, OPPURE mese corrente + ultimo giorno + ore >= 16
+        function isReportReady(year, month) {
+            const rome = nowInRome();
+            const curY = rome.getFullYear(), curM = rome.getMonth();
+            if (year < curY || (year === curY && month < curM)) return true;
+            if (year > curY || month > curM) return false;
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            return rome.getDate() === lastDay && rome.getHours() >= 16;
         }
 
         function changeMonth(delta) {
@@ -178,16 +192,15 @@
             document.getElementById('statsSection').innerHTML = '';
             updateNavButtons();
 
-            // Current month → show "collecting" animation, no recap yet
-            const now = new Date();
-            if (_year === now.getFullYear() && _month === now.getMonth()) {
+            // Mostra animazione raccolta se il report non è ancora pronto
+            if (!isReportReady(_year, _month)) {
                 renderCollecting();
                 return;
             }
 
             const [matchRes, playerRes] = await Promise.all([
-                _supabase.from('matches').select('*').order('id', { ascending: true }),
-                _supabase.from('players').select('name, avatar_url')
+                _supabase.from('matches').select('*').eq('context', getContext()).order('id', { ascending: true }),
+                _supabase.from('players').select('name, avatar_url').eq('context', getContext())
             ]);
 
             const avatars = new Map((playerRes.data || []).map(p => [p.name, p.avatar_url || '']));
@@ -486,12 +499,10 @@
         function renderCollecting() {
             if (_pongCleanup) { _pongCleanup(); _pongCleanup = null; }
 
-            const now  = new Date();
-            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-            const dayOfMonth  = now.getDate();
+            const rome        = nowInRome();
+            const daysInMonth = new Date(_year, _month + 1, 0).getDate();
+            const dayOfMonth  = rome.getDate();
             const progress    = Math.round((dayOfMonth / daysInMonth) * 100);
-            const nextMonthName = MONTH_NAMES[(_month + 1) % 12];
-            const nextYear    = _month === 11 ? _year + 1 : _year;
 
             document.getElementById('monthMatchCount').textContent = `${dayOfMonth} giorni su ${daysInMonth} raccolti`;
 
@@ -519,14 +530,14 @@
                             </h2>
                             <p class="text-sm text-slate-400 mt-1">
                                 Il recap di <strong class="text-slate-600">${MONTH_NAMES[_month]} ${_year}</strong>
-                                sarà disponibile il 1° ${nextMonthName} ${nextYear}
+                                sarà disponibile il <strong class="text-slate-600">${daysInMonth} ${MONTH_NAMES[_month]} alle 16:00</strong>
                             </p>
                         </div>
                         <div class="w-full max-w-xs">
                             <div class="flex justify-between text-[11px] font-semibold text-slate-400 mb-1.5">
                                 <span>1 ${MONTH_NAMES[_month]}</span>
                                 <span class="text-[#A5D62C] font-bold">${progress}%</span>
-                                <span>${daysInMonth} ${MONTH_NAMES[_month]}</span>
+                                <span>${daysInMonth} ${MONTH_NAMES[_month]} 16:00</span>
                             </div>
                             <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
                                 <div class="h-full rounded-full"

@@ -135,8 +135,8 @@
             let matches, dbPlayers;
             try {
                 const [r1, r2] = await Promise.all([
-                    _supabase.from('matches').select('*').order('id', { ascending: false }),
-                    _supabase.from('players').select('name, avatar_url')
+                    _supabase.from('matches').select('*').eq('context', getContext()).order('id', { ascending: false }),
+                    _supabase.from('players').select('name, avatar_url').eq('context', getContext())
                 ]);
                 if (r1.error || r1.data === null) throw new Error('fetch_failed');
                 matches   = r1.data;

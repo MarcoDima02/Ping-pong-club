@@ -210,8 +210,8 @@
             let dbPlayers, dbMatches;
             try {
                 const [r1, r2] = await Promise.all([
-                    _supabase.from('players').select('*'),
-                    _supabase.from('matches').select('*').order('id', { ascending: true })
+                    _supabase.from('players').select('*').eq('context', getContext()),
+                    _supabase.from('matches').select('*').eq('context', getContext()).order('id', { ascending: true })
                 ]);
                 if (r1.error || r2.error || r1.data === null || r2.data === null) throw new Error('fetch_failed');
                 dbPlayers = r1.data;
@@ -339,7 +339,9 @@
                     displayValue = `${p.elo} pts`;
                 }
 
-                const medal = idx < rankMedals.length ? `<span class="shrink-0 text-base">${rankMedals[idx]}</span>` : '';
+                const medal = idx < rankMedals.length
+                    ? `<span class="inline-block w-7 text-center text-base leading-none">${rankMedals[idx]}</span>`
+                    : `<span class="inline-block w-7 text-center text-sm font-bold text-slate-400 leading-none">${idx + 1}</span>`;
                 const sk = streaks[p.name] || { count: 0, win: true };
                 const streakBadge = sk.count >= 2
                     ? (sk.win
@@ -403,7 +405,7 @@
                     }
                 }
 
-                await _supabase.from('players').insert([{ name, avatar_url: finalAvatarUrl }]);
+                await _supabase.from('players').insert([{ name, avatar_url: finalAvatarUrl, context: getContext() }]);
                 document.getElementById('playerName').value = "";
                 document.getElementById('playerAvatar').value = "";
                 document.getElementById('playerAvatarFile').value = "";
@@ -424,7 +426,7 @@
                 return alert("Controlla i dati inseriti! Assicurati di aver inserito entrambi i punteggi e che non ci sia un pareggio.");
             }
 
-            await _supabase.from('matches').insert([{ p1, p2, s1, s2 }]);
+            await _supabase.from('matches').insert([{ p1, p2, s1, s2, context: getContext() }]);
             document.getElementById('p1Score').value = "";
             document.getElementById('p2Score').value = "";
             updateUI();
