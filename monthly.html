@@ -156,14 +156,32 @@
             return { m: rome.getMonth(), y: rome.getFullYear() };
         }
 
-        // Il report è pronto se: mese già passato, OPPURE mese corrente + ultimo giorno + ore >= 16
+        // Set dei mesi pubblicati manualmente: "YYYY-M-context"
+        let _releasedSet = new Set();
+
+        // Il report è pronto se: pubblicato manualmente, mese passato, oppure ultimo giorno >= 16:00
         function isReportReady(year, month) {
+            if (_releasedSet.has(`${year}-${month}-${getContext()}`)) return true;
             const rome = nowInRome();
             const curY = rome.getFullYear(), curM = rome.getMonth();
             if (year < curY || (year === curY && month < curM)) return true;
             if (year > curY || month > curM) return false;
             const lastDay = new Date(year, month + 1, 0).getDate();
             return rome.getDate() === lastDay && rome.getHours() >= 16;
+        }
+
+        async function publishReport() {
+            const btn = document.getElementById('publishBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Pubblicazione…'; }
+            const { error } = await _supabase.from('monthly_releases')
+                .upsert({ year: _year, month: _month, context: getContext() });
+            if (error) {
+                showToast('Errore nella pubblicazione', 'error');
+                if (btn) { btn.disabled = false; btn.textContent = 'Pubblica Report'; }
+                return;
+            }
+            _releasedSet.add(`${_year}-${_month}-${getContext()}`);
+            loadMonthlyReport();
         }
 
         function changeMonth(delta) {
@@ -184,6 +202,8 @@
             document.getElementById('btnNextMonth').disabled = atMax;
         }
 
+        let _releasesLoaded = false;
+
         async function loadMonthlyReport() {
             document.getElementById('monthTitle').textContent = `${MONTH_NAMES[_month]} ${_year}`;
             document.getElementById('monthMatchCount').textContent = 'Caricamento…';
@@ -191,6 +211,14 @@
             document.getElementById('rankingList').innerHTML  = '';
             document.getElementById('statsSection').innerHTML = '';
             updateNavButtons();
+
+            // Carica i mesi pubblicati manualmente (solo alla prima chiamata)
+            if (!_releasesLoaded) {
+                _releasesLoaded = true;
+                const { data: releases } = await _supabase
+                    .from('monthly_releases').select('year, month, context');
+                (releases || []).forEach(r => _releasedSet.add(`${r.year}-${r.month}-${r.context}`));
+            }
 
             // Mostra animazione raccolta se il report non è ancora pronto
             if (!isReportReady(_year, _month)) {
@@ -235,7 +263,12 @@
 
             const ranking = Object.entries(stats)
                 .map(([name, s]) => ({ name, ...s, total: s.v + s.s, rate: s.v / (s.v + s.s) }))
-                .sort((a, b) => b.v - a.v || b.rate - a.rate);
+                .sort((a, b) => {
+                    const aQ = a.total >= 10, bQ = b.total >= 10;
+                    if (aQ !== bQ) return aQ ? -1 : 1;       // qualificati prima
+                    if (aQ) return b.rate - a.rate || b.v - a.v; // entrambi qualificati: win rate
+                    return b.v - a.v || b.rate - a.rate;      // entrambi sotto soglia: vittorie
+                });
 
             renderPodium(ranking, avatars);
             renderRankingList(ranking.slice(3), avatars);
@@ -532,6 +565,10 @@
                                 Il recap di <strong class="text-slate-600">${MONTH_NAMES[_month]} ${_year}</strong>
                                 sarà disponibile il <strong class="text-slate-600">${daysInMonth} ${MONTH_NAMES[_month]} alle 16:00</strong>
                             </p>
+                            ${isAdmin() ? `<button id="publishBtn" onclick="publishReport()"
+                                class="mt-3 px-5 py-2 bg-[#0D2745] hover:bg-[#1a3a5c] text-white text-sm font-bold rounded-xl transition-colors">
+                                Pubblica Report
+                            </button>` : ''}
                         </div>
                         <div class="w-full max-w-xs">
                             <div class="flex justify-between text-[11px] font-semibold text-slate-400 mb-1.5">
@@ -625,7 +662,8 @@
             let biggestWin = matches[0], closestMatch = matches[0];
             matches.forEach(m => {
                 if (Math.abs(m.s1-m.s2) > Math.abs(biggestWin.s1-biggestWin.s2))    biggestWin   = m;
-                if (Math.abs(m.s1-m.s2) < Math.abs(closestMatch.s1-closestMatch.s2)) closestMatch = m;
+                const mDiff = Math.abs(m.s1-m.s2), cDiff = Math.abs(closestMatch.s1-closestMatch.s2);
+                if (mDiff < cDiff || (mDiff === cDiff && (m.s1+m.s2) > (closestMatch.s1+closestMatch.s2))) closestMatch = m;
             });
 
             const bigWinner = biggestWin.s1 > biggestWin.s2 ? biggestWin.p1 : biggestWin.p2;
