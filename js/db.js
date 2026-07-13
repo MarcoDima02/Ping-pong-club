@@ -196,6 +196,23 @@ window.uploadAvatarFile = async function(playerName, file) {
 		}
 		.opc-sel-filter:focus { outline: none; border-color: #A5D62C; }
 
+		/* Player search autocomplete */
+		.opc-ac-wrap { position: relative; }
+		.opc-ac-list {
+			position: absolute; left: 0; right: 0; top: 100%;
+			margin-top: 2px; background: #ffffff;
+			border: 1.5px solid #e2e8f0; border-radius: 10px;
+			box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+			max-height: 190px; overflow-y: auto;
+			z-index: 30; display: none;
+		}
+		.opc-ac-list._open { display: block; }
+		.opc-ac-item {
+			padding: 8px 12px; font-size: 13px; color: #0f172a; cursor: pointer;
+		}
+		.opc-ac-item:hover, .opc-ac-item._active { background: #f0fdf4; color: #166534; }
+		.opc-ac-empty { padding: 8px 12px; font-size: 12.5px; color: #94a3b8; }
+
 		/* Score Controls */
 		.opc-scores {
 			display: flex; align-items: center;
@@ -299,6 +316,95 @@ window.showToast = function (msg, type) {
 	}, 3000);
 };
 
+// ── PLAYER SEARCH AUTOCOMPLETE ───────────────────────────────
+// Wires a text input to a <select> of player names: typing live-filters
+// the select's options into a clickable suggestion dropdown, instead of
+// only hiding <option>s (which stayed invisible until the select was opened).
+window.attachPlayerAutocomplete = function (inputEl, selectEl) {
+	if (!inputEl || !selectEl || inputEl._opcAcAttached) return;
+	inputEl._opcAcAttached = true;
+
+	var wrap = document.createElement('div');
+	wrap.className = 'opc-ac-wrap';
+	inputEl.parentNode.insertBefore(wrap, inputEl);
+	wrap.appendChild(inputEl);
+
+	var list = document.createElement('div');
+	list.className = 'opc-ac-list';
+	wrap.appendChild(list);
+
+	var activeIndex = -1;
+
+	function close() {
+		list.classList.remove('_open');
+		list.innerHTML = '';
+		activeIndex = -1;
+	}
+
+	function setActive(items) {
+		items.forEach(function (it, i) { it.classList.toggle('_active', i === activeIndex); });
+		if (activeIndex >= 0) items[activeIndex].scrollIntoView({ block: 'nearest' });
+	}
+
+	function pick(value, text) {
+		selectEl.value = value;
+		inputEl.value = text;
+		close();
+	}
+
+	function render(query) {
+		var q = query.toLowerCase().trim();
+		if (!q) { close(); return; }
+		var matches = Array.from(selectEl.options)
+			.map(function (o) {
+				if (!o.value) return null;
+				var words = o.text.toLowerCase().split(/\s+/);
+				if (words[0].startsWith(q)) return { o: o, rank: 0 };
+				if (words.some(function (word) { return word.startsWith(q); })) return { o: o, rank: 1 };
+				return null;
+			})
+			.filter(Boolean)
+			.sort(function (a, b) { return a.rank - b.rank; })
+			.map(function (m) { return m.o; });
+
+		if (!matches.length) {
+			list.innerHTML = '<div class="opc-ac-empty">Nessun giocatore trovato</div>';
+			list.classList.add('_open');
+			activeIndex = -1;
+			return;
+		}
+
+		list.innerHTML = matches.map(function (o) {
+			return '<div class="opc-ac-item" data-value="' + o.value.replace(/"/g, '&quot;') + '">' + o.text + '</div>';
+		}).join('');
+		activeIndex = -1;
+		list.classList.add('_open');
+	}
+
+	inputEl.addEventListener('input', function () { render(inputEl.value); });
+	inputEl.addEventListener('focus', function () { if (inputEl.value) render(inputEl.value); });
+
+	inputEl.addEventListener('keydown', function (e) {
+		var items = list.querySelectorAll('.opc-ac-item');
+		if (!items.length) return;
+		if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, items.length - 1); setActive(items); }
+		else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); setActive(items); }
+		else if (e.key === 'Enter') { e.preventDefault(); if (activeIndex >= 0) items[activeIndex].click(); }
+		else if (e.key === 'Escape') { close(); }
+	});
+
+	list.addEventListener('mousedown', function (e) {
+		var item = e.target.closest('.opc-ac-item');
+		if (!item) return;
+		e.preventDefault();
+		pick(item.dataset.value, item.textContent);
+	});
+
+	document.addEventListener('click', function (e) {
+		if (!wrap.contains(e.target)) close();
+	});
+};
+
 // ── MATCH MODAL ──────────────────────────────────────────────
 var _ms = { p1: 0, p2: 0 };
 var _editMatchId = null;
@@ -342,17 +448,10 @@ window.openMatchModal = async function (presetP1, presetP2) {
 			inp = document.createElement('input');
 			inp.type = 'text'; inp.id = fid; inp.placeholder = 'Cerca...';
 			inp.className = 'opc-sel-filter'; inp.setAttribute('autocomplete', 'off');
-			inp.addEventListener('input', (function (s) { return function () {
-				var v = this.value.toLowerCase().trim();
-				Array.from(s.options).forEach(function (o) {
-					o.hidden = !!v && !!o.value && !o.text.toLowerCase().includes(v);
-				});
-			}; })(sel));
 			sel.parentNode.insertBefore(inp, sel);
-		} else {
-			inp.value = '';
-			Array.from(sel.options).forEach(function (o) { o.hidden = false; });
 		}
+		attachPlayerAutocomplete(inp, sel);
+		inp.value = '';
 	});
 
 	// Reset scores
@@ -364,6 +463,10 @@ window.openMatchModal = async function (presetP1, presetP2) {
 	// Pre-select players (per rivincita)
 	if (presetP1 && p1El) p1El.value = presetP1;
 	if (presetP2 && p2El) p2El.value = presetP2;
+	var f1Preset = document.getElementById('_p1Filter');
+	var f2Preset = document.getElementById('_p2Filter');
+	if (presetP1 && f1Preset) f1Preset.value = presetP1;
+	if (presetP2 && f2Preset) f2Preset.value = presetP2;
 
 	overlay.classList.add('_open');
 	modal.classList.add('_open');
