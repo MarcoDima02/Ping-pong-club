@@ -70,6 +70,238 @@ window.getCurrentSeason = function() {
 	return OFFICEPONG_CURRENT_SEASON[getContext()] || 1;
 };
 
+// ── BADGE: TRAGUARDI DI CARRIERA (stile C, enamel pin) ──────────────
+// Sbloccati una tantum ("milestone") o aggiornati nel tempo ("record").
+// check/value ricevono le "signal" prodotte da computePlayerBadgeSignals().
+const BADGE_CATALOG = [
+	{ id: 'first_win',         type: 'milestone', tier: 'bronze', icon: '🏆', label: 'Prima Vittoria',  desc: 'Vinci la tua prima partita della stagione.',                        check: function (s) { return s.wins >= 1; } },
+	{ id: 'matches_10',        type: 'milestone', tier: 'bronze', icon: '🎖️', label: 'Veterano',        desc: 'Gioca 10 partite in questa stagione.',                              check: function (s) { return s.total >= 10; } },
+	{ id: 'win_streak_3',      type: 'milestone', tier: 'bronze', icon: '🔥', label: 'Tris',            desc: 'Vinci 3 partite di fila.',                                          check: function (s) { return s.bestWinStreak >= 3; } },
+	{ id: 'win_streak_5',      type: 'milestone', tier: 'silver', icon: '⚡', label: 'Cinquina',        desc: 'Vinci 5 partite di fila.',                                          check: function (s) { return s.bestWinStreak >= 5; } },
+	{ id: 'win_streak_10',     type: 'milestone', tier: 'gold',   icon: '👑', label: 'Inarrestabile',   desc: 'Vinci 10 partite di fila.',                                         check: function (s) { return s.bestWinStreak >= 10; } },
+	{ id: 'win_streak_15',     type: 'milestone', tier: 'gold',   icon: '💫', label: 'Leggenda',        desc: 'Vinci 15 partite di fila.',                                         check: function (s) { return s.bestWinStreak >= 15; } },
+	{ id: 'win_streak_20',     type: 'milestone', tier: 'gold',   icon: '🚀', label: 'Fenomeno',        desc: 'Vinci 20 partite di fila.',                                         check: function (s) { return s.bestWinStreak >= 20; } },
+	{ id: 'win_streak_30',     type: 'milestone', tier: 'gold',   icon: '🐐', label: 'GOAT',            desc: 'Vinci 30 partite di fila — il record di Paolo!',                   check: function (s) { return s.bestWinStreak >= 30; } },
+	{ id: 'loss_streak_3',     type: 'milestone', tier: 'bronze', icon: '💩', label: 'Periodo No',      desc: 'Perdi 3 partite di fila.',                                          check: function (s) { return s.worstLossStreak >= 3; } },
+	{ id: 'loss_streak_5',     type: 'milestone', tier: 'silver', icon: '🥶', label: 'Crisi Nera',      desc: 'Perdi 5 partite di fila.',                                          check: function (s) { return s.worstLossStreak >= 5; } },
+	{ id: 'giant_slayer',      type: 'milestone', tier: 'silver', icon: '⚔️', label: 'Giant Slayer',    desc: 'Batti un avversario con almeno 150 punti ELO in più di te.',       check: function (s) { return s.giantSlayer; } },
+	{ id: 'best_win_streak',   type: 'record',    tier: 'gold',   icon: '🏅', label: 'Record Vittorie', desc: 'La striscia di vittorie consecutive più lunga mai raggiunta.',     value: function (s) { return s.bestWinStreak; } },
+	{ id: 'worst_loss_streak', type: 'record',    tier: 'gold',   icon: '🪦', label: 'Record Sconfitte', desc: 'La striscia di sconfitte consecutive più lunga mai raggiunta.',   value: function (s) { return s.worstLossStreak; } },
+];
+
+// ── BADGE: RICONOSCIMENTI MENSILI (stile B, medaglia + nastro) ──────
+// Calcolati una volta a mese (vedi ensureMonthlyBadgesComputed), persistiti
+// con year/month per restare in bacheca anche dopo la fine del mese.
+const MONTHLY_BADGE_META = {
+	monthly_top1:          { icon: '🥇', label: '1° Classificato',         tier: 'gold',   desc: '1° in classifica alla fine del mese.' },
+	monthly_top2:          { icon: '🥈', label: '2° Classificato',         tier: 'silver', desc: '2° in classifica alla fine del mese.' },
+	monthly_top3:          { icon: '🥉', label: '3° Classificato',         tier: 'bronze', desc: '3° in classifica alla fine del mese.' },
+	monthly_most_active:   { icon: '🎯', label: 'Più Attivo',              tier: 'gold',   desc: 'Il giocatore con più partite disputate nel mese.' },
+	monthly_best_winrate:  { icon: '📈', label: 'Miglior Win Rate',        tier: 'gold',   desc: 'Miglior percentuale di vittorie nel mese (minimo 10 partite).' },
+	monthly_biggest_win:   { icon: '💥', label: 'Vittoria più Netta',      tier: 'gold',   desc: 'La vittoria con lo scarto di punti più ampio del mese.' },
+	monthly_closest_match: { icon: '⚔️', label: 'Partita più Combattuta', tier: 'gold',   desc: 'La partita più combattuta (scarto minimo) del mese.' },
+};
+
+window.OFFICEPONG_MONTH_NAMES = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+	'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+// Ricalcola, da una lista di partite (ascendente per id, stesso context+season),
+// ELO progressivo di tutti i giocatori e i segnali di badge per playerName.
+function computePlayerBadgeSignals(matches, playerName) {
+	const eloMap = {};
+	let winStreak = 0, lossStreak = 0, bestWinStreak = 0, worstLossStreak = 0;
+	let total = 0, wins = 0, giantSlayer = false;
+
+	matches.forEach(function (m) {
+		if (!(m.p1 in eloMap)) eloMap[m.p1] = 1000;
+		if (!(m.p2 in eloMap)) eloMap[m.p2] = 1000;
+		const r1 = eloMap[m.p1], r2 = eloMap[m.p2];
+		const p1Wins = m.s1 > m.s2;
+
+		if (m.p1 === playerName || m.p2 === playerName) {
+			total++;
+			const iAmP1 = m.p1 === playerName;
+			const iWon = iAmP1 ? p1Wins : !p1Wins;
+			const myEloBefore = iAmP1 ? r1 : r2;
+			const oppEloBefore = iAmP1 ? r2 : r1;
+
+			if (iWon) {
+				wins++;
+				winStreak++; lossStreak = 0;
+				if (winStreak > bestWinStreak) bestWinStreak = winStreak;
+				if (oppEloBefore - myEloBefore >= 150) giantSlayer = true;
+			} else {
+				lossStreak++; winStreak = 0;
+				if (lossStreak > worstLossStreak) worstLossStreak = lossStreak;
+			}
+		}
+
+		const e1 = 1 / (1 + Math.pow(10, (r2 - r1) / 400));
+		const e2 = 1 / (1 + Math.pow(10, (r1 - r2) / 400));
+		const K = 32;
+		eloMap[m.p1] = Math.round(r1 + K * ((p1Wins ? 1 : 0) - e1));
+		eloMap[m.p2] = Math.round(r2 + K * ((p1Wins ? 0 : 1) - e2));
+	});
+
+	return { total: total, wins: wins, bestWinStreak: bestWinStreak, worstLossStreak: worstLossStreak, giantSlayer: giantSlayer };
+}
+
+// Da chiamare dopo ogni salvataggio/modifica di partita: ricalcola i segnali
+// dei giocatori coinvolti e assegna eventuali nuovi badge di carriera.
+window.checkAndAwardCareerBadges = async function (context, season, playerNames) {
+	const matchesRes = await _supabase.from('matches').select('*').eq('context', context).eq('season', season).order('id', { ascending: true });
+	const matches = matchesRes.data || [];
+
+	const existingRes = await _supabase.from('player_badges').select('player_name, badge_id, value')
+		.eq('context', context).eq('season', season).is('year', null).in('player_name', playerNames);
+	const existing = existingRes.data || [];
+
+	for (const name of playerNames) {
+		const signals = computePlayerBadgeSignals(matches, name);
+		const existingForPlayer = existing.filter(function (r) { return r.player_name === name; });
+
+		for (const b of BADGE_CATALOG) {
+			if (b.type === 'milestone') {
+				const already = existingForPlayer.some(function (r) { return r.badge_id === b.id; });
+				if (!already && b.check(signals)) {
+					await _supabase.from('player_badges').insert([{ context: context, player_name: name, season: season, badge_id: b.id }]);
+					showToast('🏅 Nuovo badge: ' + b.icon + ' ' + b.label + '!');
+				}
+			} else {
+				const newValue = b.value(signals);
+				const existingRow = existingForPlayer.find(function (r) { return r.badge_id === b.id; });
+				if (newValue > 0 && (!existingRow || newValue > existingRow.value)) {
+					if (existingRow) {
+						await _supabase.from('player_badges').update({ value: newValue, unlocked_at: new Date().toISOString() }).eq('id', existingRow.id);
+					} else {
+						await _supabase.from('player_badges').insert([{ context: context, player_name: name, season: season, badge_id: b.id, value: newValue }]);
+					}
+					showToast('🏅 Nuovo record: ' + b.icon + ' ' + b.label + ' (' + newValue + ')!');
+				}
+			}
+		}
+	}
+};
+
+// Da chiamare al caricamento del report mensile (solo quando è "pronto"):
+// calcola una tantum i riconoscimenti del mese, se non già presenti.
+window.ensureMonthlyBadgesComputed = async function (year, month, context, monthMatches, ranking) {
+	const existing = await _supabase.from('player_badges').select('id').eq('context', context).eq('year', year).eq('month', month).limit(1);
+	if (existing.data && existing.data.length > 0) return;
+
+	const season = getCurrentSeason();
+	const rows = [];
+	const podiumIds = ['monthly_top1', 'monthly_top2', 'monthly_top3'];
+	for (let i = 0; i < 3; i++) {
+		if (ranking[i]) rows.push({ context: context, player_name: ranking[i].name, season: season, badge_id: podiumIds[i], year: year, month: month });
+	}
+
+	const mostActive = [...ranking].sort(function (a, b) { return b.total - a.total; })[0];
+	if (mostActive) rows.push({ context: context, player_name: mostActive.name, season: season, badge_id: 'monthly_most_active', year: year, month: month, value: mostActive.total });
+
+	const qualified = ranking.filter(function (p) { return p.total >= 10; });
+	const topRate = qualified.length ? qualified.sort(function (a, b) { return b.rate - a.rate; })[0] : null;
+	if (topRate) rows.push({ context: context, player_name: topRate.name, season: season, badge_id: 'monthly_best_winrate', year: year, month: month, value: Math.round(topRate.rate * 100) });
+
+	if (monthMatches.length > 0) {
+		let biggestWin = monthMatches[0], closestMatch = monthMatches[0];
+		monthMatches.forEach(function (m) {
+			if (Math.abs(m.s1 - m.s2) > Math.abs(biggestWin.s1 - biggestWin.s2)) biggestWin = m;
+			const mDiff = Math.abs(m.s1 - m.s2), cDiff = Math.abs(closestMatch.s1 - closestMatch.s2);
+			if (mDiff < cDiff || (mDiff === cDiff && (m.s1 + m.s2) > (closestMatch.s1 + closestMatch.s2))) closestMatch = m;
+		});
+		const bigWinner = biggestWin.s1 > biggestWin.s2 ? biggestWin.p1 : biggestWin.p2;
+		rows.push({ context: context, player_name: bigWinner, season: season, badge_id: 'monthly_biggest_win', year: year, month: month });
+		rows.push({ context: context, player_name: closestMatch.p1, season: season, badge_id: 'monthly_closest_match', year: year, month: month });
+		rows.push({ context: context, player_name: closestMatch.p2, season: season, badge_id: 'monthly_closest_match', year: year, month: month });
+	}
+
+	if (rows.length) await _supabase.from('player_badges').insert(rows);
+};
+
+// Capitoli ("sezioni") in cui raggruppare i traguardi di carriera nel libro.
+const CAREER_BADGE_SECTIONS = [
+	{ title: 'Vittorie', icon: '🏆', ids: ['first_win', 'matches_10'] },
+	{ title: 'Streak di Vittorie', icon: '🔥', ids: ['win_streak_3', 'win_streak_5', 'win_streak_10', 'win_streak_15', 'win_streak_20', 'win_streak_30'] },
+	{ title: 'Streak di Sconfitte', icon: '💩', ids: ['loss_streak_3', 'loss_streak_5'] },
+	{ title: 'Record & Speciali', icon: '🏅', ids: ['giant_slayer', 'best_win_streak', 'worst_loss_streak'] },
+];
+
+const BADGE_CHAPTER_CHEVRON = '<svg class="opc-badge-chapter-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>';
+
+function renderCareerBadgeCol(b, row) {
+	const unlocked = !!row;
+	const valueSuffix = (b.type === 'record' && row && row.value) ? ' — record attuale: ' + row.value : '';
+	return '<div class="opc-badge-row' + (unlocked ? '' : ' opc-badge-row--locked') + '">' +
+		'<div class="opc-badge-c tier-' + b.tier + (unlocked ? '' : ' opc-badge-c--locked') + '">' + b.icon + '</div>' +
+		'<div class="opc-badge-row-text">' +
+			'<div class="opc-badge-row-name">' + b.label + (unlocked ? '' : ' 🔒') + '</div>' +
+			'<div class="opc-badge-row-desc">' + b.desc + valueSuffix + '</div>' +
+		'</div>' +
+	'</div>';
+}
+
+function renderMonthlyBadgeCol(r) {
+	const meta = MONTHLY_BADGE_META[r.badge_id];
+	if (!meta) return '';
+	const valueSuffix = r.value ? ' — ' + r.value + (r.badge_id === 'monthly_best_winrate' ? '%' : '') : '';
+	return '<div class="opc-badge-row">' +
+		'<div class="opc-badge-b-wrap"><div class="opc-badge-b tier-' + meta.tier + '">' + meta.icon + '</div>' +
+			'<div class="opc-badge-b-ribbon tier-' + meta.tier + '"></div></div>' +
+		'<div class="opc-badge-row-text">' +
+			'<div class="opc-badge-row-name">' + meta.label + '</div>' +
+			'<div class="opc-badge-row-desc">' + meta.desc + valueSuffix + '</div>' +
+		'</div>' +
+	'</div>';
+}
+
+// Renderizza il "libro" dei riconoscimenti di un giocatore: un accordion con un
+// capitolo per categoria di traguardo di carriera, seguito da un capitolo per
+// ogni mese con riconoscimenti (più recente in cima).
+window.renderPlayerBadgeBook = async function (playerName, context, season) {
+	const res = await _supabase.from('player_badges').select('*').eq('context', context).eq('player_name', playerName).eq('season', season);
+	const rows = res.data || [];
+	const career = rows.filter(function (r) { return r.year === null; });
+
+	const monthlyByKey = {};
+	rows.filter(function (r) { return r.year !== null; }).forEach(function (r) {
+		const key = r.year + '-' + r.month;
+		if (!monthlyByKey[key]) monthlyByKey[key] = { year: r.year, month: r.month, rows: [] };
+		monthlyByKey[key].rows.push(r);
+	});
+	const monthlyChapters = Object.values(monthlyByKey)
+		.sort(function (a, b) { return (b.year * 12 + b.month) - (a.year * 12 + a.month); });
+
+	const careerChaptersHtml = CAREER_BADGE_SECTIONS.map(function (section) {
+		const badges = BADGE_CATALOG.filter(function (b) { return section.ids.indexOf(b.id) !== -1; });
+		const unlockedCount = badges.filter(function (b) { return career.some(function (r) { return r.badge_id === b.id; }); }).length;
+		const bodyHtml = '<div class="opc-badge-list">' + badges.map(function (b) {
+			return renderCareerBadgeCol(b, career.find(function (r) { return r.badge_id === b.id; }));
+		}).join('') + '</div>';
+		return '<details class="opc-badge-chapter"><summary>' +
+			'<span>' + section.icon + ' ' + section.title + '</span>' +
+			'<span style="display:flex;align-items:center;gap:8px">' +
+				'<span class="opc-badge-chapter-count">' + unlockedCount + '/' + badges.length + '</span>' +
+				BADGE_CHAPTER_CHEVRON +
+			'</span>' +
+		'</summary><div class="opc-badge-chapter-body">' + bodyHtml + '</div></details>';
+	}).join('');
+
+	const monthlyChaptersHtml = monthlyChapters.length ? monthlyChapters.map(function (ch) {
+		const monthLabel = OFFICEPONG_MONTH_NAMES[ch.month] + ' ' + ch.year;
+		const bodyHtml = '<div class="opc-badge-list">' + ch.rows.map(renderMonthlyBadgeCol).join('') + '</div>';
+		return '<details class="opc-badge-chapter opc-badge-chapter--monthly"><summary>' +
+			'<span>📅 ' + monthLabel + '</span>' +
+			'<span style="display:flex;align-items:center;gap:8px">' +
+				'<span class="opc-badge-chapter-count">' + ch.rows.length + '</span>' +
+				BADGE_CHAPTER_CHEVRON +
+			'</span>' +
+		'</summary><div class="opc-badge-chapter-body">' + bodyHtml + '</div></details>';
+	}).join('') : '<p class="text-sm text-slate-400 p-4">Nessun riconoscimento mensile ancora.</p>';
+
+	return '<div class="opc-badge-book">' + careerChaptersHtml + monthlyChaptersHtml + '</div>';
+};
+
 window.buildAvatarFilePath = function(playerName, file) {
 	const safeName = playerName
 		.normalize('NFD')
@@ -283,6 +515,57 @@ window.uploadAvatarFile = async function(playerName, file) {
 		}
 		.opc-toast--error { background: #dc2626; }
 		.opc-toast--show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+		/* Badge list: icona + nome + spiegazione (come si ottiene) */
+		.opc-badge-list { display: flex; flex-direction: column; gap: 12px; }
+		.opc-badge-row { display: flex; align-items: center; gap: 12px; }
+		.opc-badge-row-text { min-width: 0; }
+		.opc-badge-row-name { font-size: 13px; font-weight: 700; color: #1e293b; }
+		.opc-badge-row-desc { font-size: 11.5px; color: #94a3b8; margin-top: 1px; line-height: 1.3; }
+		.opc-badge-row--locked .opc-badge-row-name { color: #94a3b8; }
+
+		/* Stile C — traguardi di carriera (enamel pin) */
+		.opc-badge-c {
+			width: 52px; height: 52px; border-radius: 50%;
+			display: flex; align-items: center; justify-content: center;
+			font-size: 22px; background: #0f172a; border: 3px solid #e8c14a;
+			box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+		}
+		.opc-badge-c.tier-silver { border-color: #b6c2cf; }
+		.opc-badge-c.tier-bronze { border-color: #c17a4a; }
+		.opc-badge-c--locked { opacity: 0.35; filter: grayscale(1); }
+
+		/* Stile B — riconoscimenti mensili (medaglia metallo + nastro) */
+		.opc-badge-b-wrap { display: flex; flex-direction: column; align-items: center; }
+		.opc-badge-b {
+			width: 52px; height: 52px; border-radius: 50%;
+			display: flex; align-items: center; justify-content: center; font-size: 20px;
+			box-shadow: 0 3px 8px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.6);
+		}
+		.opc-badge-b.tier-gold   { background: radial-gradient(circle at 32% 28%, #fff6d8, #e8c14a 45%, #a97c1f 85%); }
+		.opc-badge-b.tier-silver { background: radial-gradient(circle at 32% 28%, #f8fafc, #b9c4cf 45%, #7c8894 85%); }
+		.opc-badge-b.tier-bronze { background: radial-gradient(circle at 32% 28%, #f6d9c2, #c17a4a 45%, #7c4423 85%); }
+		.opc-badge-b-ribbon { width: 20px; height: 13px; margin-top: -3px; }
+		.opc-badge-b-ribbon.tier-gold   { background: linear-gradient(135deg, #dc2626, #7f1d1d); clip-path: polygon(0 0,100% 0,100% 100%,50% 75%,0 100%); }
+		.opc-badge-b-ribbon.tier-silver { background: linear-gradient(135deg, #64748b, #334155); clip-path: polygon(0 0,100% 0,100% 100%,50% 75%,0 100%); }
+		.opc-badge-b-ribbon.tier-bronze { background: linear-gradient(135deg, #b45309, #78350f); clip-path: polygon(0 0,100% 0,100% 100%,50% 75%,0 100%); }
+
+		/* Libro dei riconoscimenti (accordion a capitoli) */
+		.opc-badge-book { border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; background: #fff; }
+		.opc-badge-chapter { border-bottom: 1px solid #e2e8f0; border-left: 4px solid #A5D62C; }
+		.opc-badge-chapter:last-child { border-bottom: none; }
+		.opc-badge-chapter--monthly { border-left-color: #e8c14a; }
+		.opc-badge-chapter > summary {
+			padding: 14px 16px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+			font-weight: 700; font-size: 13.5px; color: #334155; list-style: none; user-select: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+		.opc-badge-chapter > summary::-webkit-details-marker { display: none; }
+		.opc-badge-chapter > summary:hover { background: #f8fafc; }
+		.opc-badge-chapter-count { font-size: 11px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 2px 9px; border-radius: 999px; }
+		.opc-badge-chapter-chevron { color: #94a3b8; transition: transform 0.2s; flex-shrink: 0; }
+		.opc-badge-chapter[open] > summary .opc-badge-chapter-chevron { transform: rotate(180deg); }
+		.opc-badge-chapter-body { padding: 4px 16px 18px; }
 	`;
 	document.head.appendChild(s);
 })();
@@ -618,6 +901,7 @@ window.saveModalMatch = async function () {
 	var wasEdit = !!_editMatchId;
 	closeMatchModal();
 	showToast(wasEdit ? 'Partita aggiornata! ✏️' : 'Partita salvata! 🏓');
+	checkAndAwardCareerBadges(getContext(), getCurrentSeason(), [p1, p2]);
 
 	// Refresh page-specific data if available
 	if (typeof updateUI === 'function') updateUI();

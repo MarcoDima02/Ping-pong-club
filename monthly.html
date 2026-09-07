@@ -273,6 +273,7 @@
             renderPodium(ranking, avatars);
             renderRankingList(ranking.slice(3), avatars);
             renderStats(monthMatches, ranking, avatars);
+            ensureMonthlyBadgesComputed(_year, _month, getContext(), monthMatches, ranking);
         }
 
         // ── PING PONG CANVAS ANIMATION ────────────────────────────
@@ -594,6 +595,7 @@
             // display order: 2nd | 1st | 3rd
             const order    = [ranking[1]||null, ranking[0]||null, ranking[2]||null];
             const medals   = ['🥈', '🥇', '🥉'];
+            const medalTier= ['silver', 'gold', 'bronze'];
             const positions= ['2°', '1°', '3°'];
             const platH    = [64, 88, 48];          // px
             const platBg   = ['#1e3a55', '#A5D62C', '#1a3250'];
@@ -608,7 +610,10 @@
                 return `
                     <div class="flex-1 flex flex-col items-center min-w-0">
                         <div style="border-radius:50%;box-shadow:0 0 0 3px ${ringCol[i]},0 0 0 6px #0D2745">${av}</div>
-                        <span class="text-2xl mt-2">${medals[i]}</span>
+                        <div class="opc-badge-b-wrap mt-2">
+                            <div class="opc-badge-b tier-${medalTier[i]}" style="width:40px;height:40px;font-size:17px">${medals[i]}</div>
+                            <div class="opc-badge-b-ribbon tier-${medalTier[i]}"></div>
+                        </div>
                         <span class="text-white font-bold text-xs text-center leading-tight mt-1 px-1 w-full truncate">${p.name}</span>
                         <span class="text-slate-400 text-[11px] mt-0.5">${p.v}V–${p.s}S${winRate}</span>
                         <div style="height:${platH[i]}px;background:${platBg[i]}" class="w-full rounded-t-xl flex items-center justify-center mt-3">
@@ -702,7 +707,7 @@
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 flex items-center gap-4">
                     ${c.avatar
                         ? `<div class="shrink-0">${c.avatar}</div>`
-                        : `<div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">${c.icon}</div>`}
+                        : `<div class="opc-badge-b tier-gold shrink-0" style="width:44px;height:44px;font-size:18px">${c.icon}</div>`}
                     <div class="min-w-0">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${c.label}</p>
                         <p class="font-bold text-slate-800 truncate mt-0.5">${c.main}</p>

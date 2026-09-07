@@ -80,6 +80,11 @@
             </div>
         </div>
 
+        <div>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">Bacheca Riconoscimenti</h2>
+            <div id="badgeBookSection" class="text-sm text-slate-400">Caricamento…</div>
+        </div>
+
         <div id="eloChartSection"></div>
 
         <div id="h2hSection"></div>
@@ -449,6 +454,11 @@
             // Preview avatar nel pannello impostazioni
             document.getElementById('profileAvatarPreview').innerHTML = renderAvatar(player?.avatar_url || '', playerName, 'w-24 h-24');
             document.getElementById('profileAvatarUrl').value = player?.avatar_url || '';
+
+            // Bacheca riconoscimenti (libro ad accordion: traguardi + mensili)
+            renderPlayerBadgeBook(playerName, getContext(), getCurrentSeason()).then(function (html) {
+                document.getElementById('badgeBookSection').innerHTML = html;
+            });
 
             const { data: allMatches, error } = await _supabase.from('matches').select('*').eq('context', getContext()).eq('season', getCurrentSeason()).order('id', { ascending: true });
 

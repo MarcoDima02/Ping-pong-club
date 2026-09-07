@@ -423,6 +423,7 @@
             await _supabase.from('matches').insert([{ p1, p2, s1, s2, context: getContext(), season: getCurrentSeason() }]);
             document.getElementById('p1Score').value = "";
             document.getElementById('p2Score').value = "";
+            checkAndAwardCareerBadges(getContext(), getCurrentSeason(), [p1, p2]);
             updateUI();
         }
 
