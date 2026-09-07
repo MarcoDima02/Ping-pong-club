@@ -205,7 +205,7 @@
             try {
                 const [r1, r2] = await Promise.all([
                     _supabase.from('players').select('*').eq('context', getContext()),
-                    _supabase.from('matches').select('*').eq('context', getContext()).order('id', { ascending: true })
+                    _supabase.from('matches').select('*').eq('context', getContext()).eq('season', getCurrentSeason()).order('id', { ascending: true })
                 ]);
                 if (r1.error || r2.error || r1.data === null || r2.data === null) throw new Error('fetch_failed');
                 dbPlayers = r1.data;
@@ -420,7 +420,7 @@
                 return alert("Controlla i dati inseriti! Assicurati di aver inserito entrambi i punteggi e che non ci sia un pareggio.");
             }
 
-            await _supabase.from('matches').insert([{ p1, p2, s1, s2, context: getContext() }]);
+            await _supabase.from('matches').insert([{ p1, p2, s1, s2, context: getContext(), season: getCurrentSeason() }]);
             document.getElementById('p1Score').value = "";
             document.getElementById('p2Score').value = "";
             updateUI();

@@ -227,7 +227,7 @@
             }
 
             const [matchRes, playerRes] = await Promise.all([
-                _supabase.from('matches').select('*').eq('context', getContext()).order('id', { ascending: true }),
+                _supabase.from('matches').select('*').eq('context', getContext()).eq('season', getCurrentSeason()).order('id', { ascending: true }),
                 _supabase.from('players').select('name, avatar_url').eq('context', getContext())
             ]);
 

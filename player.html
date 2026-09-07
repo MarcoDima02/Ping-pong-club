@@ -450,7 +450,7 @@
             document.getElementById('profileAvatarPreview').innerHTML = renderAvatar(player?.avatar_url || '', playerName, 'w-24 h-24');
             document.getElementById('profileAvatarUrl').value = player?.avatar_url || '';
 
-            const { data: allMatches, error } = await _supabase.from('matches').select('*').eq('context', getContext()).order('id', { ascending: true });
+            const { data: allMatches, error } = await _supabase.from('matches').select('*').eq('context', getContext()).eq('season', getCurrentSeason()).order('id', { ascending: true });
 
             if (error || !allMatches) {
                 console.error("Errore Supabase:", error);

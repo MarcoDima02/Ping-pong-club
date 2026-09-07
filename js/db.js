@@ -63,6 +63,13 @@ window.getContext = function() {
 	return window.localStorage.getItem(OFFICEPONG_ROLE_KEY) === 'casa' ? 'casa' : 'office';
 };
 
+// Season corrente per contesto: le partite di stagioni precedenti restano nel
+// DB (colonna "season" su matches) ma non vengono più mostrate/contate.
+const OFFICEPONG_CURRENT_SEASON = { office: 2, casa: 1 };
+window.getCurrentSeason = function() {
+	return OFFICEPONG_CURRENT_SEASON[getContext()] || 1;
+};
+
 window.buildAvatarFilePath = function(playerName, file) {
 	const safeName = playerName
 		.normalize('NFD')
@@ -297,7 +304,59 @@ document.addEventListener('DOMContentLoaded', function () {
 			logo.insertAdjacentElement('afterend', badge);
 		}
 	}
+
+	maybeShowSeasonAnnouncement();
 });
+
+// ── ANNUNCIO SEASON 2 (solo il 2026-09-07, solo contesto office) ────
+function maybeShowSeasonAnnouncement() {
+	if (getContext() !== 'office') return;
+
+	const todayRome = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' });
+	if (todayRome !== '2026-09-07') return;
+
+	const flagKey = 'opc_season2_announced_2026-09-07';
+	if (window.localStorage.getItem(flagKey) === '1') return;
+
+	const overlay = document.createElement('div');
+	overlay.className = 'opc-overlay';
+	const modal = document.createElement('div');
+	modal.className = 'opc-modal';
+	modal.innerHTML = `
+		<div class="opc-modal-handle"></div>
+		<div class="opc-modal-head">
+			<span class="opc-modal-title">🎉 È iniziata la Season 2!</span>
+			<button class="opc-modal-close" id="_seasonAnnounceClose">✕</button>
+		</div>
+		<div class="opc-modal-body">
+			<p style="font-size:14px;color:#334155;line-height:1.5;margin:0;">
+				Le classifiche sono state azzerate: si riparte tutti da 1000 punti ELO.
+				Lo storico della Season 1 resta salvato, ma non conta più nei punteggi.
+				Buona fortuna a tutti! 🏓
+			</p>
+			<button class="opc-modal-save" id="_seasonAnnounceOk">Si comincia!</button>
+		</div>
+	`;
+	document.body.appendChild(overlay);
+	document.body.appendChild(modal);
+
+	function dismiss() {
+		window.localStorage.setItem(flagKey, '1');
+		overlay.classList.remove('_open');
+		modal.classList.remove('_open');
+		setTimeout(function () { overlay.remove(); modal.remove(); }, 300);
+	}
+	overlay.addEventListener('click', dismiss);
+	modal.querySelector('#_seasonAnnounceClose').addEventListener('click', dismiss);
+	modal.querySelector('#_seasonAnnounceOk').addEventListener('click', dismiss);
+
+	requestAnimationFrame(function () {
+		requestAnimationFrame(function () {
+			overlay.classList.add('_open');
+			modal.classList.add('_open');
+		});
+	});
+}
 
 // ── TOAST ────────────────────────────────────────────────────
 window.showToast = function (msg, type) {
@@ -546,7 +605,7 @@ window.saveModalMatch = async function () {
 	if (_editMatchId) {
 		result = await _supabase.from('matches').update({ s1: s1, s2: s2 }).eq('id', _editMatchId);
 	} else {
-		result = await _supabase.from('matches').insert([{ p1: p1, p2: p2, s1: s1, s2: s2, context: getContext() }]);
+		result = await _supabase.from('matches').insert([{ p1: p1, p2: p2, s1: s1, s2: s2, context: getContext(), season: getCurrentSeason() }]);
 	}
 
 	if (btn) { btn.disabled = false; btn.textContent = 'Salva Partita'; }
