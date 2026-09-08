@@ -526,7 +526,7 @@ window.uploadAvatarFile = async function(playerName, file) {
 
 		/* Stile C — traguardi di carriera (enamel pin) */
 		.opc-badge-c {
-			width: 52px; height: 52px; border-radius: 50%;
+			width: 52px; height: 52px; min-width: 52px; flex-shrink: 0; border-radius: 50%;
 			display: flex; align-items: center; justify-content: center;
 			font-size: 22px; background: #0f172a; border: 3px solid #e8c14a;
 			box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -536,7 +536,7 @@ window.uploadAvatarFile = async function(playerName, file) {
 		.opc-badge-c--locked { opacity: 0.35; filter: grayscale(1); }
 
 		/* Stile B — riconoscimenti mensili (medaglia metallo + nastro) */
-		.opc-badge-b-wrap { display: flex; flex-direction: column; align-items: center; }
+		.opc-badge-b-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
 		.opc-badge-b {
 			width: 52px; height: 52px; border-radius: 50%;
 			display: flex; align-items: center; justify-content: center; font-size: 20px;
